@@ -12,7 +12,7 @@ scanner.py → (standalone)
 
 ## Key design decisions
 
-- **Agents dir resolution:** `launcher.py` resolves agents path relative to package location (`__file__/../../../agents/`). This works for both `pip install -e .` and `pipx install .` but for pipx the agents won't be bundled — needs attention if distributing via pipx.
+- **Agents dir resolution:** `launcher.py` resolves agents path from `__file__/../agents/` — agents are bundled inside the package at `src/devamp/agents/`. Works with both `pip install -e .` and `pipx install .`.
 - **No state file:** Pipeline state is derived purely from file presence in `.devamp/tasks/{task}/`. No database, no config state.
 - **subprocess.run without shell:** `claude` CLI is called directly, stdin/stdout inherited from parent process (interactive mode).
 - **Task creation:** Product agent creates the task directory and spec.md. After agent exits, devamp scans for new directories in `.devamp/tasks/`.

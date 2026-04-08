@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0
+
+- Fix: `_select_task` now displays resolved step instead of raw step (P2)
+- Updated README with current installation and usage instructions (P2)
+- Fix: replaced recursion with `while` loops in retry logic to prevent stack overflow (P3)
+- Agents bundled inside package (`src/devamp/agents/`) — `pipx install` now works (P3)
+- Added unit test suite (27 tests) for scanner and pipeline modules (P3)
+- Added `[project.optional-dependencies] dev` with pytest and ruff
+
 ## 0.1.0
 
 - Initial MVP CLI orchestrator

@@ -56,11 +56,12 @@ def _print_dashboard(state: ProjectState) -> None:
     typer.echo()
 
 
-def _select_task(active: list[TaskState]) -> TaskState | None:
+def _select_task(active: list[TaskState], project_type: ProjectType) -> TaskState | None:
     """Let user select from multiple active tasks."""
     typer.echo("Select task to continue:")
     for i, t in enumerate(active, 1):
-        typer.echo(f"  {i}. {t.name}  [{t.step.value}]")
+        step = resolve_step(t.step, project_type)
+        typer.echo(f"  {i}. {t.name}  [{step.value}]")
     typer.echo()
 
     choice = typer.prompt("Task number", type=int)
@@ -73,23 +74,25 @@ def _select_task(active: list[TaskState]) -> TaskState | None:
 
 def _run_discovery(cwd: Path, state: ProjectState) -> None:
     """Run discovery agent for empty projects."""
-    typer.echo("🔍 Empty project — starting discovery agent...")
-    typer.echo()
+    while True:
+        typer.echo("🔍 Empty project — starting discovery agent...")
+        typer.echo()
 
-    exit_code = launch_agent("discovery")
+        exit_code = launch_agent("discovery")
 
-    if exit_code != 0:
-        typer.echo(f"Agent exited with code {exit_code}.")
-        return
+        if exit_code != 0:
+            typer.echo(f"Agent exited with code {exit_code}.")
+            return
 
-    # Verify: at least 1 .md file in .devamp/domain/
-    domain_dir = cwd / DOMAIN_DIR
-    if domain_dir.is_dir() and any(domain_dir.glob("*.md")):
-        typer.echo("✅ Discovery complete — domain files created.")
-    else:
+        # Verify: at least 1 .md file in .devamp/domain/
+        domain_dir = cwd / DOMAIN_DIR
+        if domain_dir.is_dir() and any(domain_dir.glob("*.md")):
+            typer.echo("✅ Discovery complete — domain files created.")
+            return
+
         retry = typer.confirm("Agent did not produce expected output. Retry?", default=True)
-        if retry:
-            _run_discovery(cwd, state)
+        if not retry:
+            return
 
 
 def _run_agent_for_task(
@@ -104,39 +107,41 @@ def _run_agent_for_task(
         typer.echo(f"Task '{task.name}' is already done.")
         return
 
-    agent_name = STEP_TO_AGENT[step]
-    initial_message = build_initial_message(
-        TaskState(name=task.name, step=step, path=task.path),
-        state,
-    )
+    while True:
+        agent_name = STEP_TO_AGENT[step]
+        initial_message = build_initial_message(
+            TaskState(name=task.name, step=step, path=task.path),
+            state,
+        )
 
-    typer.echo(f"🚀 Launching {agent_name} for '{task.name}'...")
-    typer.echo()
+        typer.echo(f"🚀 Launching {agent_name} for '{task.name}'...")
+        typer.echo()
 
-    # For multi-repo, give agent access to all repo directories
-    add_dirs = None
-    if state.project_type == ProjectType.MULTI and state.repos:
-        add_dirs = [str(cwd / repo) for repo in state.repos]
+        # For multi-repo, give agent access to all repo directories
+        add_dirs = None
+        if state.project_type == ProjectType.MULTI and state.repos:
+            add_dirs = [str(cwd / repo) for repo in state.repos]
 
-    exit_code = launch_agent(agent_name, initial_message, add_dirs)
+        exit_code = launch_agent(agent_name, initial_message, add_dirs)
 
-    if exit_code != 0:
-        typer.echo(f"Agent exited with code {exit_code}.")
+        if exit_code != 0:
+            typer.echo(f"Agent exited with code {exit_code}.")
 
-    # Verify expected output
-    _verify_output(task, step, cwd, state)
+        # Verify expected output — retry loop ends when output exists or user declines
+        if not _should_retry(task, step, cwd, state):
+            return
 
 
-def _verify_output(
+def _should_retry(
     task: TaskState,
     step: TaskStep,
     cwd: Path,
     state: ProjectState,
-) -> None:
-    """Check that the agent produced the expected output file."""
+) -> bool:
+    """Check expected output. Return True if agent should be retried."""
     expected_file = STEP_EXPECTED_OUTPUT.get(step)
     if not expected_file:
-        return
+        return False
 
     output_path = task.path / expected_file
 
@@ -146,15 +151,13 @@ def _verify_output(
         # Check for new task directories (product agent creates the task dir)
         if step == TaskStep.PRODUCT:
             _check_new_tasks(cwd, state)
-    else:
-        # Maybe the agent created a new task directory (product agent flow)
-        if step == TaskStep.PRODUCT:
-            if _check_new_tasks(cwd, state):
-                return
+        return False
 
-        retry = typer.confirm("Agent did not produce expected output. Retry?", default=True)
-        if retry:
-            _run_agent_for_task(task, state, cwd)
+    # Maybe the agent created a new task directory (product agent flow)
+    if step == TaskStep.PRODUCT and _check_new_tasks(cwd, state):
+        return False
+
+    return typer.confirm("Agent did not produce expected output. Retry?", default=True)
 
 
 def _check_new_tasks(cwd: Path, state: ProjectState) -> bool:
@@ -261,6 +264,6 @@ def main(
         if cont:
             _run_agent_for_task(task, state, cwd)
     else:
-        task = _select_task(active)
+        task = _select_task(active, state.project_type)
         if task:
             _run_agent_for_task(task, state, cwd)

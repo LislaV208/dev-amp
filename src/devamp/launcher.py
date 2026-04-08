@@ -5,8 +5,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-# Agents directory relative to this package
-AGENTS_DIR = Path(__file__).resolve().parent.parent.parent / "agents"
+# Agents directory — bundled inside the package
+AGENTS_DIR = Path(__file__).resolve().parent / "agents"
 
 
 def get_agent_path(agent_name: str) -> Path:
