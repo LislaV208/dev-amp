@@ -6,6 +6,7 @@ from pathlib import Path
 
 import typer
 
+from . import __version__
 from .context import build_initial_message
 from .launcher import launch_agent
 from .pipeline import (
@@ -25,6 +26,12 @@ from .scanner import (
 )
 
 app = typer.Typer(add_completion=False)
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"devamp {__version__}")
+        raise typer.Exit()
 
 
 def _print_dashboard(state: ProjectState) -> None:
@@ -192,6 +199,9 @@ def _get_most_recent_task(tasks: list[TaskState]) -> TaskState | None:
 
 @app.callback(invoke_without_command=True)
 def main(
+    version: bool = typer.Option(
+        False, "--version", "-v", help="Show version", callback=_version_callback, is_eager=True,
+    ),
     resume: bool = typer.Option(False, "--resume", help="Resume most recent active task"),
 ) -> None:
     """devamp — AI agent pipeline orchestrator."""
