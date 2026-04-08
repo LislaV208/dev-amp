@@ -200,7 +200,12 @@ def _get_most_recent_task(tasks: list[TaskState]) -> TaskState | None:
 @app.callback(invoke_without_command=True)
 def main(
     version: bool = typer.Option(
-        False, "--version", "-v", help="Show version", callback=_version_callback, is_eager=True,
+        False,
+        "--version",
+        "-v",
+        help="Show version",
+        callback=_version_callback,
+        is_eager=True,
     ),
     resume: bool = typer.Option(False, "--resume", help="Resume most recent active task"),
 ) -> None:
