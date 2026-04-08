@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.3.1
+
+### Fixes
+- [P2] Delegation context now built before `clear_routing()` — agents receive "Delegated from X: Reason: ..." in initial message
+
+## 0.3.0
+
+### Breaking changes
+- Agent rename: `developer-system` → `architect`, `developer-multi` → `planner`, `developer-single` → `dev`
+- TaskStep enum values changed: `DEV_SYSTEM` → `ARCHITECT`, `DEV_MULTI` → `PLANNER`, `DEV_SINGLE` → `DEV`
+- `launch_agent()` now returns `tuple[int, str]` (exit_code, session_id) instead of `int`
+
+### Features
+- **Dashboard loop:** persistent hub — program runs until user quits, no more exit after single action
+- **Post-agent menu:** after agent session, user chooses: continue, pick agent, dashboard, or quit
+- **Agent picker:** full agent list available regardless of project type (manual override)
+- **Routing system:** agents write `## Routing` section in output; devamp parses and uses for next step
+- **Session tracking:** UUID-based session IDs, resume previous sessions when agent returns to task
+- **Task metadata:** `task-metadata.json` per task (created_at, sessions, routing info)
+- **Loop support:** routing from metadata overrides file-based step detection (QA → dev loops work)
+- **Delegation context:** initial message includes who delegated and why
+- **Product routing awareness:** product agent recommends next agent based on task complexity
+- **Knowledge awareness:** product, qa, architect, planner now read `.devamp/knowledge/` on startup
+- **Backward delegation:** all agents (except product) can delegate back when input has gaps
+- **"Start new task" always available** in dashboard, not just when all tasks are done
+
+### Fixes
+- [P2] Session ID captured in all launch paths (new-task, auto-launch)
+- [P2] Recursion replaced with while loops (re-fixed regression)
+- [P2] Stale routing cleared before each agent launch (prevents infinite loops)
+- [P2] Expected output derived from agent name, not pipeline step (fixes picker on single-repo)
+- [P3] CLAUDE.md updated to reflect all 7 modules
+- [P3] README.md updated with new agent names and architecture
+- [P3] All stale agent names removed from comments and prompts
+
+### New modules
+- `metadata.py` — task metadata persistence
+- `routing.py` — parse `## Routing` from agent output files
+
+### Tests
+- 60 tests total (up from 27): new tests for routing, metadata, renamed agents, loop detection
+
 ## 0.2.2
 
 - Feat: "Start new task?" prompt when all tasks are done, with agent selection (default: product)

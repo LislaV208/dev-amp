@@ -29,23 +29,25 @@ On first run in an empty directory, devamp launches the **discovery** agent to e
 ## Pipeline
 
 ```
-Discovery → Product → Dev-System → Dev-Multi → Dev-Single → QA
+Discovery → Product → Architect → Planner → Dev → QA
 ```
 
-Single-repo projects skip `Dev-System` and `Dev-Multi` — pipeline goes straight from `Product` to `Dev-Single`.
+Single-repo projects skip `Architect` and `Planner` — pipeline goes straight from `Product` to `Dev`.
 
 ## Architecture
 
 ```
 src/devamp/
-  cli.py        — typer entry point, dashboard, --resume flag
+  cli.py        — typer entry point, persistent dashboard loop, post-agent menus
   scanner.py    — detect project type (empty/single/multi-repo), read task states
   pipeline.py   — step ordering, skip logic for single-repo
-  context.py    — build initial message per agent based on pipeline state
-  launcher.py   — run `claude --agent` as interactive subprocess
+  context.py    — build initial message per agent, delegation context
+  launcher.py   — run `claude --agent` as interactive subprocess, session tracking
+  metadata.py   — task metadata persistence (timestamps, sessions, routing)
+  routing.py    — parse `## Routing` section from agent output files
 ```
 
-State is derived from file presence in `.devamp/tasks/{task}/` — no database, no config file.
+State is derived from routing metadata (priority) and file presence in `.devamp/tasks/{task}/` (fallback).
 
 ## Agents
 
@@ -53,9 +55,9 @@ State is derived from file presence in `.devamp/tasks/{task}/` — no database, 
 |-------|------|
 | `discovery` | Extract product vision from conversation with developer/client |
 | `product` | Product analysis, spec, UX |
-| `developer-system` | System-wide impact analysis |
-| `developer-multi` | Coordination across repos |
-| `developer-single` | Code implementation |
+| `architect` | System-wide impact analysis |
+| `planner` | Coordination across repos |
+| `dev` | Code implementation |
 | `qa` | Testing, bug collection, routing |
 
 Agents are bundled in `src/devamp/agents/` and are passed to `claude --agent`.

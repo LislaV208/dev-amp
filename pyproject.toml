@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "devamp"
-version = "0.2.2"
+version = "0.3.1"
 description = "CLI orchestrator for AI agent pipeline"
 requires-python = ">=3.11"
 dependencies = [

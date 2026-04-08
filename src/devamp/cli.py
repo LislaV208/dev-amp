@@ -1,4 +1,4 @@
-"""Typer entry point — routes: devamp (dashboard), devamp --resume."""
+"""Typer entry point — persistent dashboard loop with post-agent menus."""
 
 from __future__ import annotations
 
@@ -9,12 +9,22 @@ import typer
 from . import __version__
 from .context import build_initial_message
 from .launcher import launch_agent
+from .metadata import (
+    clear_routing,
+    ensure_metadata,
+    get_created_at,
+    get_session_id,
+    record_routing,
+    record_session,
+)
 from .pipeline import (
-    STEP_EXPECTED_OUTPUT,
+    AGENT_EXPECTED_OUTPUT,
+    ALL_AGENTS,
     STEP_TO_AGENT,
-    get_pipeline,
+    get_next_step,
     resolve_step,
 )
+from .routing import ROUTING_DONE, ROUTING_PIPELINE, parse_routing
 from .scanner import (
     DOMAIN_DIR,
     TASKS_DIR,
@@ -35,6 +45,11 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+# ---------------------------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------------------------
+
+
 def _print_dashboard(state: ProjectState) -> None:
     """Print project dashboard."""
     type_label = state.project_type.value
@@ -46,11 +61,16 @@ def _print_dashboard(state: ProjectState) -> None:
     active = [t for t in state.tasks if t.step != TaskStep.DONE]
     done = [t for t in state.tasks if t.step == TaskStep.DONE]
 
+    # Sort active by mtime (newest first)
+    active.sort(key=lambda t: t.path.stat().st_mtime, reverse=True)
+
     if active:
         typer.echo("Active tasks:")
-        for t in active:
+        for i, t in enumerate(active, 1):
             step = resolve_step(t.step, state.project_type)
-            typer.echo(f"  {t.name}  [{step.value}]")
+            agent = STEP_TO_AGENT.get(step, step.value)
+            date = get_created_at(t.path)
+            typer.echo(f"  {i}. {t.name}  [→ {agent}]  ({date})")
     else:
         typer.echo("Active tasks: (none)")
 
@@ -58,26 +78,320 @@ def _print_dashboard(state: ProjectState) -> None:
     if done:
         typer.echo("Done:")
         for t in done:
-            typer.echo(f"  {t.name}")
+            date = get_created_at(t.path)
+            typer.echo(f"  {t.name}  ({date})")
     else:
         typer.echo("Done: (none)")
     typer.echo()
 
 
-def _select_task(active: list[TaskState], project_type: ProjectType) -> TaskState | None:
-    """Let user select from multiple active tasks."""
-    typer.echo("Select task to continue:")
-    for i, t in enumerate(active, 1):
-        step = resolve_step(t.step, project_type)
-        typer.echo(f"  {i}. {t.name}  [{step.value}]")
+# ---------------------------------------------------------------------------
+# Agent picker
+# ---------------------------------------------------------------------------
+
+
+def _pick_agent() -> str | None:
+    """Show full agent list and let user choose. Returns agent name or None."""
+    typer.echo("Choose agent:")
+    for i, name in enumerate(ALL_AGENTS, 1):
+        typer.echo(f"  {i}. {name}")
     typer.echo()
 
-    choice = typer.prompt("Task number", type=int)
-    if 1 <= choice <= len(active):
-        return active[choice - 1]
-
+    choice = typer.prompt("Agent number", type=int)
+    if 1 <= choice <= len(ALL_AGENTS):
+        return ALL_AGENTS[choice - 1]
     typer.echo("Invalid choice.")
     return None
+
+
+# ---------------------------------------------------------------------------
+# Post-agent menu
+# ---------------------------------------------------------------------------
+
+
+def _post_agent_menu(
+    task: TaskState,
+    state: ProjectState,
+    agent_name: str,
+    routing_next: str | None,
+    routing_reason: str | None,
+    expected_file: str | None,
+) -> str:
+    """Show post-agent menu after agent session ends.
+
+    Returns action: "continue", "pick", "dashboard", "quit", "new_task".
+    """
+    has_output = expected_file and (task.path / expected_file).exists()
+
+    # Determine recommended next
+    step = resolve_step(task.step, state.project_type)
+    default_next_step = get_next_step(step, state.project_type)
+
+    if routing_next == ROUTING_DONE:
+        typer.echo(f"✅ {expected_file} created. Task complete!")
+        typer.echo()
+        typer.echo("  [N] Start new task")
+        typer.echo("  [D] Dashboard")
+        typer.echo("  [Q] Quit")
+        typer.echo()
+        choice = typer.prompt("Choice", default="D").strip().upper()
+        if choice == "N":
+            return "new_task"
+        if choice == "Q":
+            return "quit"
+        return "dashboard"
+
+    if routing_next and routing_next not in (ROUTING_PIPELINE, ROUTING_DONE):
+        # Agent recommends specific next agent
+        typer.echo(f"✅ {expected_file} created.")
+        typer.echo(f"{agent_name} recommends: {routing_next} — {routing_reason}")
+        typer.echo()
+        typer.echo(f"  [C] Continue to {routing_next} (recommended)")
+        typer.echo("  [A] Choose different agent for this task")
+        typer.echo("  [D] Dashboard")
+        typer.echo("  [Q] Quit")
+        typer.echo()
+        choice = typer.prompt("Choice", default="C").strip().upper()
+        if choice == "C":
+            return "continue"
+        if choice == "A":
+            return "pick"
+        if choice == "Q":
+            return "quit"
+        return "dashboard"
+
+    if has_output:
+        # Default pipeline flow
+        if default_next_step == TaskStep.DONE:
+            typer.echo(f"✅ {expected_file} created. Task complete!")
+            typer.echo()
+            typer.echo("  [N] Start new task")
+            typer.echo("  [D] Dashboard")
+            typer.echo("  [Q] Quit")
+            typer.echo()
+            choice = typer.prompt("Choice", default="D").strip().upper()
+            if choice == "N":
+                return "new_task"
+            if choice == "Q":
+                return "quit"
+            return "dashboard"
+
+        default_agent = STEP_TO_AGENT.get(default_next_step, default_next_step.value)
+        typer.echo(f"✅ {expected_file} created.")
+        typer.echo(f"Recommended next: {default_agent} (pipeline default)")
+        typer.echo()
+        typer.echo(f"  [C] Continue to {default_agent} (default)")
+        typer.echo("  [A] Choose different agent for this task")
+        typer.echo("  [D] Dashboard")
+        typer.echo("  [Q] Quit")
+        typer.echo()
+        choice = typer.prompt("Choice", default="C").strip().upper()
+        if choice == "C":
+            return "continue"
+        if choice == "A":
+            return "pick"
+        if choice == "Q":
+            return "quit"
+        return "dashboard"
+
+    # No expected output — shouldn't normally reach here (retry handles it)
+    return "dashboard"
+
+
+# ---------------------------------------------------------------------------
+# Agent execution
+# ---------------------------------------------------------------------------
+
+
+def _resolve_next_agent(
+    task: TaskState,
+    state: ProjectState,
+) -> str:
+    """Resolve which agent should run next for a task.
+
+    Uses routing from metadata if available, falls back to pipeline default.
+    """
+    from .metadata import load_metadata
+
+    meta = load_metadata(task.path)
+
+    if meta.last_routing_next and meta.last_routing_next not in (
+        ROUTING_PIPELINE,
+        ROUTING_DONE,
+    ):
+        return meta.last_routing_next
+
+    step = resolve_step(task.step, state.project_type)
+    return STEP_TO_AGENT.get(step, "product")
+
+
+def _run_agent_for_task(
+    task: TaskState,
+    state: ProjectState,
+    cwd: Path,
+) -> str:
+    """Run agents for a task in a loop until user exits to dashboard/quit.
+
+    Returns: "dashboard" or "quit" or "new_task".
+    """
+    while True:
+        # Re-scan to get fresh state
+        state = scan_project(cwd)
+        fresh_task = next((t for t in state.tasks if t.name == task.name), None)
+        if not fresh_task:
+            typer.echo(f"Task '{task.name}' not found.")
+            return "dashboard"
+        task = fresh_task
+
+        step = resolve_step(task.step, state.project_type)
+        if step == TaskStep.DONE:
+            typer.echo(f"Task '{task.name}' is already done.")
+            return "dashboard"
+
+        agent_name = _resolve_next_agent(task, state)
+
+        # Ensure metadata exists for this task
+        ensure_metadata(task.path)
+
+        # Build initial message BEFORE clearing routing —
+        # delegation context reads last_routing_next/reason from metadata
+        initial_message = build_initial_message(
+            TaskState(name=task.name, step=step, path=task.path),
+            state,
+        )
+
+        # Clear stale routing AFTER building message so next loop iteration
+        # doesn't re-use this routing
+        clear_routing(task.path)
+
+        typer.echo(f"🚀 Launching {agent_name} for '{task.name}'...")
+        typer.echo()
+
+        # Session tracking: resume if agent has a previous session on this task
+        existing_session = get_session_id(task.path, agent_name)
+
+        # For multi-repo, give agent access to all repo directories
+        add_dirs = None
+        if state.project_type == ProjectType.MULTI and state.repos:
+            add_dirs = [str(cwd / repo) for repo in state.repos]
+
+        exit_code, session_id = launch_agent(
+            agent_name,
+            initial_message,
+            add_dirs,
+            session_id=existing_session,
+        )
+
+        # Record session ID
+        record_session(task.path, agent_name, session_id)
+
+        if exit_code != 0:
+            typer.echo(f"Agent exited with code {exit_code}.")
+
+        # Check for new task directories (product agent creates the task dir)
+        if step == TaskStep.PRODUCT:
+            new_task_name = _check_new_tasks(cwd, state)
+            if new_task_name:
+                state = scan_project(cwd)
+                task = next((t for t in state.tasks if t.name == new_task_name), task)
+
+        # Determine expected output file from agent name (not step!)
+        # This fixes P2: when user picks architect on single-repo, expected_file
+        # should be system-analysis.md, not qa-input.md from the resolved step.
+        expected_file = AGENT_EXPECTED_OUTPUT.get(agent_name)
+
+        # Retry loop for missing output
+        if expected_file and not (task.path / expected_file).exists():
+            retry = typer.confirm("Agent did not produce expected output. Retry?", default=True)
+            if retry:
+                continue
+            return "dashboard"
+
+        # Parse routing from output (single place — no double recording)
+        routing_next = None
+        routing_reason = None
+        if expected_file and (task.path / expected_file).exists():
+            routing = parse_routing(task.path / expected_file)
+            if routing:
+                record_routing(task.path, routing.next, routing.reason)
+                routing_next = routing.next
+                routing_reason = routing.reason
+
+        # Post-agent menu
+        action = _post_agent_menu(
+            task, state, agent_name, routing_next, routing_reason, expected_file
+        )
+
+        if action == "continue":
+            continue
+        if action == "pick":
+            picked = _pick_agent()
+            if picked:
+                record_routing(task.path, picked, "Manual agent selection")
+            continue
+        # "dashboard", "quit", "new_task"
+        return action
+
+
+def _check_new_tasks(cwd: Path, state: ProjectState) -> str | None:
+    """Check for newly created task directories. Returns new task name or None."""
+    current_tasks = scan_tasks(cwd)
+    existing_names = {t.name for t in state.tasks}
+    new_tasks = [t for t in current_tasks if t.name not in existing_names]
+
+    if new_tasks:
+        for t in new_tasks:
+            typer.echo(f"Task created: {t.name}")
+            ensure_metadata(t.path)
+        return new_tasks[0].name
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# New task flow
+# ---------------------------------------------------------------------------
+
+
+def _start_new_task(cwd: Path, state: ProjectState) -> str:
+    """Start a new task. Returns "dashboard", "quit", or "new_task"."""
+    typer.echo("Select agent for new task:")
+    for i, name in enumerate(ALL_AGENTS, 1):
+        default_marker = " (default)" if name == "product" else ""
+        typer.echo(f"  {i}. {name}{default_marker}")
+    typer.echo()
+
+    product_idx = ALL_AGENTS.index("product") + 1
+    choice = typer.prompt("Agent number", default=product_idx, type=int)
+
+    if not (1 <= choice <= len(ALL_AGENTS)):
+        typer.echo("Invalid choice.")
+        return "dashboard"
+
+    agent_name = ALL_AGENTS[choice - 1]
+
+    tasks_dir = cwd / TASKS_DIR
+    tasks_dir.mkdir(parents=True, exist_ok=True)
+
+    initial_message = f"Domain: {DOMAIN_DIR}/" if state.has_domain else None
+    exit_code, session_id = launch_agent(agent_name, initial_message)
+
+    new_task_name = _check_new_tasks(cwd, state)
+    if new_task_name:
+        new_state = scan_project(cwd)
+        new_task = next((t for t in new_state.tasks if t.name == new_task_name), None)
+        if new_task:
+            record_session(new_task.path, agent_name, session_id)
+            cont = typer.confirm(f'Continue with "{new_task_name}"?', default=True)
+            if cont:
+                return _run_agent_for_task(new_task, new_state, cwd)
+
+    return "dashboard"
+
+
+# ---------------------------------------------------------------------------
+# Discovery flow
+# ---------------------------------------------------------------------------
 
 
 def _run_discovery(cwd: Path, state: ProjectState) -> None:
@@ -86,13 +400,12 @@ def _run_discovery(cwd: Path, state: ProjectState) -> None:
         typer.echo("🔍 Empty project — starting discovery agent...")
         typer.echo()
 
-        exit_code = launch_agent("discovery")
+        exit_code, _session_id = launch_agent("discovery")
 
         if exit_code != 0:
             typer.echo(f"Agent exited with code {exit_code}.")
             return
 
-        # Verify: at least 1 .md file in .devamp/domain/
         domain_dir = cwd / DOMAIN_DIR
         if domain_dir.is_dir() and any(domain_dir.glob("*.md")):
             typer.echo("✅ Discovery complete — domain files created.")
@@ -103,123 +416,9 @@ def _run_discovery(cwd: Path, state: ProjectState) -> None:
             return
 
 
-def _run_agent_for_task(
-    task: TaskState,
-    state: ProjectState,
-    cwd: Path,
-) -> None:
-    """Run the appropriate agent for a task's current step."""
-    step = resolve_step(task.step, state.project_type)
-
-    if step == TaskStep.DONE:
-        typer.echo(f"Task '{task.name}' is already done.")
-        return
-
-    while True:
-        agent_name = STEP_TO_AGENT[step]
-        initial_message = build_initial_message(
-            TaskState(name=task.name, step=step, path=task.path),
-            state,
-        )
-
-        typer.echo(f"🚀 Launching {agent_name} for '{task.name}'...")
-        typer.echo()
-
-        # For multi-repo, give agent access to all repo directories
-        add_dirs = None
-        if state.project_type == ProjectType.MULTI and state.repos:
-            add_dirs = [str(cwd / repo) for repo in state.repos]
-
-        exit_code = launch_agent(agent_name, initial_message, add_dirs)
-
-        if exit_code != 0:
-            typer.echo(f"Agent exited with code {exit_code}.")
-
-        # Verify expected output — retry loop ends when output exists or user declines
-        if not _should_retry(task, step, cwd, state):
-            return
-
-
-def _should_retry(
-    task: TaskState,
-    step: TaskStep,
-    cwd: Path,
-    state: ProjectState,
-) -> bool:
-    """Check expected output. Return True if agent should be retried."""
-    expected_file = STEP_EXPECTED_OUTPUT.get(step)
-    if not expected_file:
-        return False
-
-    output_path = task.path / expected_file
-
-    if output_path.exists():
-        typer.echo(f"✅ {expected_file} created.")
-
-        # Check for new task directories (product agent creates the task dir)
-        if step == TaskStep.PRODUCT:
-            _check_new_tasks(cwd, state)
-        return False
-
-    # Maybe the agent created a new task directory (product agent flow)
-    if step == TaskStep.PRODUCT and _check_new_tasks(cwd, state):
-        return False
-
-    return typer.confirm("Agent did not produce expected output. Retry?", default=True)
-
-
-def _check_new_tasks(cwd: Path, state: ProjectState) -> bool:
-    """Check for newly created task directories after an agent session."""
-    current_tasks = scan_tasks(cwd)
-    existing_names = {t.name for t in state.tasks}
-    new_tasks = [t for t in current_tasks if t.name not in existing_names]
-
-    if new_tasks:
-        for t in new_tasks:
-            cont = typer.confirm(f"Task created: {t.name}. Continue?", default=True)
-            if cont:
-                # Re-scan and continue with the new task
-                new_state = scan_project(cwd)
-                new_task = next((tt for tt in new_state.tasks if tt.name == t.name), None)
-                if new_task:
-                    _run_agent_for_task(new_task, new_state, cwd)
-        return True
-
-    return False
-
-
-def _start_new_task(cwd: Path, state: ProjectState) -> None:
-    """Prompt user to start a new task, with agent selection (default: product)."""
-    start = typer.confirm("Start new task?", default=True)
-    if not start:
-        return
-
-    # Build agent choices from pipeline steps for this project type
-    pipeline = get_pipeline(state.project_type)
-    agents = [STEP_TO_AGENT[s] for s in pipeline if s in STEP_TO_AGENT]
-
-    # Show agent picker with product as default
-    typer.echo("Select agent:")
-    for i, name in enumerate(agents, 1):
-        default_marker = " (default)" if name == "product" else ""
-        typer.echo(f"  {i}. {name}{default_marker}")
-    typer.echo()
-
-    product_idx = agents.index("product") + 1 if "product" in agents else 1
-    choice = typer.prompt("Agent number", default=product_idx, type=int)
-
-    if not (1 <= choice <= len(agents)):
-        typer.echo("Invalid choice.")
-        return
-
-    agent_name = agents[choice - 1]
-
-    tasks_dir = cwd / TASKS_DIR
-    tasks_dir.mkdir(parents=True, exist_ok=True)
-
-    initial_message = f"Domain: {DOMAIN_DIR}/" if state.has_domain else None
-    launch_agent(agent_name, initial_message)
-    _check_new_tasks(cwd, state)
+# ---------------------------------------------------------------------------
+# Resume helper
+# ---------------------------------------------------------------------------
 
 
 def _get_most_recent_task(tasks: list[TaskState]) -> TaskState | None:
@@ -227,9 +426,12 @@ def _get_most_recent_task(tasks: list[TaskState]) -> TaskState | None:
     active = [t for t in tasks if t.step != TaskStep.DONE]
     if not active:
         return None
-
-    # Sort by modification time of task directory (most recent first)
     return max(active, key=lambda t: t.path.stat().st_mtime)
+
+
+# ---------------------------------------------------------------------------
+# Main entry — dashboard loop
+# ---------------------------------------------------------------------------
 
 
 @app.callback(invoke_without_command=True)
@@ -246,76 +448,76 @@ def main(
 ) -> None:
     """devamp — AI agent pipeline orchestrator."""
     cwd = Path.cwd()
-    state = scan_project(cwd)
 
     if resume:
+        state = scan_project(cwd)
         task = _get_most_recent_task(state.tasks)
-        if task:
-            _run_agent_for_task(task, state, cwd)
-        else:
+        if not task:
             typer.echo("No active tasks to resume.")
-        return
-
-    # Dashboard mode
-    active = [t for t in state.tasks if t.step != TaskStep.DONE]
-
-    # No tasks at all
-    if not state.tasks:
-        if state.project_type == ProjectType.EMPTY and not state.has_domain:
-            # Empty project, no domain — start discovery
-            _print_dashboard(state)
-            _run_discovery(cwd, state)
             return
-
-        if state.has_domain:
-            # Has domain but no tasks — launch product agent
-            _print_dashboard(state)
-            typer.echo("No tasks. Starting new task...")
-            typer.echo()
-
-            # Product agent will create the task directory
-            # We launch it without a task context — it will create one
-            tasks_dir = cwd / TASKS_DIR
-            tasks_dir.mkdir(parents=True, exist_ok=True)
-
-            launch_agent(
-                "product",
-                f"Domain: {DOMAIN_DIR}/" if state.has_domain else None,
-            )
-            _check_new_tasks(cwd, state)
+        result = _run_agent_for_task(task, state, cwd)
+        if result == "quit":
             return
+        # After resume, fall through to dashboard loop
 
-        # Single/multi repo without domain — go straight to product
+    # Dashboard loop — runs until user quits
+    while True:
+        state = scan_project(cwd)
+
+        # No tasks at all
+        if not state.tasks:
+            if state.project_type == ProjectType.EMPTY and not state.has_domain:
+                _print_dashboard(state)
+                _run_discovery(cwd, state)
+                continue
+
+            if state.has_domain or state.project_type != ProjectType.EMPTY:
+                _print_dashboard(state)
+                typer.echo("No tasks. Starting new task...")
+                typer.echo()
+                result = _start_new_task(cwd, state)
+                if result == "quit":
+                    return
+                continue
+
+        # Print dashboard
         _print_dashboard(state)
-        typer.echo("No tasks. Starting new task...")
+
+        active = [t for t in state.tasks if t.step != TaskStep.DONE]
+        active.sort(key=lambda t: t.path.stat().st_mtime, reverse=True)
+
+        # Build menu options
+        options: list[str] = []
+        if active:
+            for i, t in enumerate(active, 1):
+                options.append(f"  [{i}] Continue '{t.name}'")
+        options.append("  [N] Start new task")
+        options.append("  [Q] Quit")
+
+        for opt in options:
+            typer.echo(opt)
         typer.echo()
 
-        tasks_dir = cwd / TASKS_DIR
-        tasks_dir.mkdir(parents=True, exist_ok=True)
+        choice = typer.prompt("Choice", default="1" if active else "N").strip().upper()
 
-        launch_agent("product")
-        _check_new_tasks(cwd, state)
-        return
+        if choice == "Q":
+            return
 
-    # Print dashboard
-    _print_dashboard(state)
+        if choice == "N":
+            result = _start_new_task(cwd, state)
+            if result == "quit":
+                return
+            continue
 
-    if not active:
-        typer.echo("All tasks are done.")
-        typer.echo()
-        _start_new_task(cwd, state)
-        return
+        try:
+            idx = int(choice)
+            if 1 <= idx <= len(active):
+                task = active[idx - 1]
+                result = _run_agent_for_task(task, state, cwd)
+                if result == "quit":
+                    return
+                continue
+        except ValueError:
+            pass
 
-    if len(active) == 1:
-        task = active[0]
-        step = resolve_step(task.step, state.project_type)
-        cont = typer.confirm(
-            f'Continue "{task.name}" [{step.value}]?',
-            default=True,
-        )
-        if cont:
-            _run_agent_for_task(task, state, cwd)
-    else:
-        task = _select_task(active, state.project_type)
-        if task:
-            _run_agent_for_task(task, state, cwd)
+        typer.echo("Invalid choice.")

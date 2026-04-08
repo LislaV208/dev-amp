@@ -9,7 +9,6 @@ import pytest
 
 from devamp.launcher import (
     AGENTS_DIR,
-    CLAUDE_AGENTS_DIR,
     get_agent_path,
     sync_agents,
 )
@@ -22,10 +21,24 @@ def test_get_agent_path_valid():
     assert path.exists()
 
 
+def test_get_agent_path_renamed_agents():
+    """Renamed agents (architect, planner, dev) should be findable."""
+    for name in ("architect", "planner", "dev"):
+        path = get_agent_path(name)
+        assert path.exists()
+
+
 def test_get_agent_path_invalid():
     """Unknown agent name raises FileNotFoundError."""
     with pytest.raises(FileNotFoundError):
         get_agent_path("nonexistent-agent")
+
+
+def test_get_agent_path_old_names_invalid():
+    """Old agent names should no longer exist."""
+    for old_name in ("developer-system", "developer-multi", "developer-single"):
+        with pytest.raises(FileNotFoundError):
+            get_agent_path(old_name)
 
 
 def test_sync_agents_copies_files(tmp_path: Path):
@@ -46,13 +59,11 @@ def test_sync_agents_overwrites_existing(tmp_path: Path):
     fake_claude_agents = tmp_path / ".claude" / "agents"
     fake_claude_agents.mkdir(parents=True)
 
-    # Write a stale file
     stale = fake_claude_agents / "product.md"
     stale.write_text("old content")
 
     with patch("devamp.launcher.CLAUDE_AGENTS_DIR", fake_claude_agents):
         sync_agents()
 
-    # Should have been overwritten with bundled content
     assert stale.read_text() != "old content"
     assert stale.read_text() == (AGENTS_DIR / "product.md").read_text()

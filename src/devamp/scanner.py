@@ -21,9 +21,9 @@ class TaskStep(Enum):
     """Current pipeline step for a task — what should run next."""
 
     PRODUCT = "product"
-    DEV_SYSTEM = "dev-system"
-    DEV_MULTI = "dev-multi"
-    DEV_SINGLE = "dev-single"
+    ARCHITECT = "architect"
+    PLANNER = "planner"
+    DEV = "dev"
     QA = "qa"
     DONE = "done"
 
@@ -62,18 +62,58 @@ def detect_project_type(cwd: Path) -> tuple[ProjectType, list[str]]:
 
 
 def detect_task_step(task_dir: Path) -> TaskStep:
-    """Determine current pipeline step from file presence in task directory."""
+    """Determine current pipeline step for a task.
+
+    Priority:
+    1. Routing from metadata (last_routing_next) — handles loops (e.g. QA → dev)
+    2. File-based detection — fallback when no metadata routing exists
+
+    Routing from metadata is set by devamp after parsing ## Routing from agent output.
+    File-based detection is the original mechanism: presence of output files determines step.
+    """
+    from .metadata import load_metadata
+
+    meta = load_metadata(task_dir)
+    if meta.last_routing_next:
+        routing = meta.last_routing_next
+        if routing == "done":
+            return TaskStep.DONE
+        if routing == "pipeline":
+            # "pipeline" means default next — fall through to file-based
+            pass
+        else:
+            step = _agent_name_to_step(routing)
+            if step is not None:
+                return step
+
+    return _detect_step_from_files(task_dir)
+
+
+def _detect_step_from_files(task_dir: Path) -> TaskStep:
+    """Original file-based step detection."""
     if (task_dir / "qa-session.md").exists():
         return TaskStep.DONE
     if (task_dir / "qa-input.md").exists():
         return TaskStep.QA
     if (task_dir / "multi-plan.md").exists():
-        return TaskStep.DEV_SINGLE
+        return TaskStep.DEV
     if (task_dir / "system-analysis.md").exists():
-        return TaskStep.DEV_MULTI
+        return TaskStep.PLANNER
     if (task_dir / "spec.md").exists():
-        return TaskStep.DEV_SYSTEM
+        return TaskStep.ARCHITECT
     return TaskStep.PRODUCT
+
+
+def _agent_name_to_step(agent_name: str) -> TaskStep | None:
+    """Convert agent name string to TaskStep."""
+    mapping = {
+        "product": TaskStep.PRODUCT,
+        "architect": TaskStep.ARCHITECT,
+        "planner": TaskStep.PLANNER,
+        "dev": TaskStep.DEV,
+        "qa": TaskStep.QA,
+    }
+    return mapping.get(agent_name)
 
 
 def scan_tasks(cwd: Path) -> list[TaskState]:

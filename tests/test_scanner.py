@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from devamp.scanner import (
@@ -69,7 +70,7 @@ def test_detect_multi_repo_ignores_hidden_dirs(tmp_path: Path) -> None:
     assert ".cache" not in repos
 
 
-# --- Task step detection ---
+# --- Task step detection (file-based fallback, no metadata) ---
 
 
 def test_detect_task_step_empty(tmp_path: Path) -> None:
@@ -82,7 +83,7 @@ def test_detect_task_step_spec(tmp_path: Path) -> None:
     task_dir = tmp_path / "my-task"
     task_dir.mkdir()
     (task_dir / "spec.md").write_text("")
-    assert detect_task_step(task_dir) == TaskStep.DEV_SYSTEM
+    assert detect_task_step(task_dir) == TaskStep.ARCHITECT
 
 
 def test_detect_task_step_system_analysis(tmp_path: Path) -> None:
@@ -90,7 +91,7 @@ def test_detect_task_step_system_analysis(tmp_path: Path) -> None:
     task_dir.mkdir()
     (task_dir / "spec.md").write_text("")
     (task_dir / "system-analysis.md").write_text("")
-    assert detect_task_step(task_dir) == TaskStep.DEV_MULTI
+    assert detect_task_step(task_dir) == TaskStep.PLANNER
 
 
 def test_detect_task_step_multi_plan(tmp_path: Path) -> None:
@@ -99,7 +100,7 @@ def test_detect_task_step_multi_plan(tmp_path: Path) -> None:
     (task_dir / "spec.md").write_text("")
     (task_dir / "system-analysis.md").write_text("")
     (task_dir / "multi-plan.md").write_text("")
-    assert detect_task_step(task_dir) == TaskStep.DEV_SINGLE
+    assert detect_task_step(task_dir) == TaskStep.DEV
 
 
 def test_detect_task_step_qa_input(tmp_path: Path) -> None:
@@ -114,6 +115,61 @@ def test_detect_task_step_done(tmp_path: Path) -> None:
     task_dir.mkdir()
     (task_dir / "qa-session.md").write_text("")
     assert detect_task_step(task_dir) == TaskStep.DONE
+
+
+# --- Task step detection with metadata routing (loops) ---
+
+
+def test_detect_task_step_routing_overrides_files(tmp_path: Path) -> None:
+    """Metadata routing takes priority over file-based detection."""
+    task_dir = tmp_path / "my-task"
+    task_dir.mkdir()
+    (task_dir / "qa-session.md").write_text("")
+    meta = {"created_at": "2026-01-01T00:00:00+00:00", "sessions": {}, "last_routing_next": "dev"}
+    (task_dir / "task-metadata.json").write_text(json.dumps(meta))
+    assert detect_task_step(task_dir) == TaskStep.DEV
+
+
+def test_detect_task_step_routing_pipeline_falls_through(tmp_path: Path) -> None:
+    """Routing 'pipeline' falls through to file-based detection."""
+    task_dir = tmp_path / "my-task"
+    task_dir.mkdir()
+    (task_dir / "qa-input.md").write_text("")
+    meta = {
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "sessions": {},
+        "last_routing_next": "pipeline",
+    }
+    (task_dir / "task-metadata.json").write_text(json.dumps(meta))
+    assert detect_task_step(task_dir) == TaskStep.QA
+
+
+def test_detect_task_step_routing_done(tmp_path: Path) -> None:
+    """Routing 'done' returns DONE regardless of files."""
+    task_dir = tmp_path / "my-task"
+    task_dir.mkdir()
+    (task_dir / "qa-input.md").write_text("")
+    meta = {
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "sessions": {},
+        "last_routing_next": "done",
+    }
+    (task_dir / "task-metadata.json").write_text(json.dumps(meta))
+    assert detect_task_step(task_dir) == TaskStep.DONE
+
+
+def test_detect_task_step_no_routing_falls_to_files(tmp_path: Path) -> None:
+    """No routing in metadata → file-based detection."""
+    task_dir = tmp_path / "my-task"
+    task_dir.mkdir()
+    (task_dir / "spec.md").write_text("")
+    meta = {
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "sessions": {},
+        "last_routing_next": None,
+    }
+    (task_dir / "task-metadata.json").write_text(json.dumps(meta))
+    assert detect_task_step(task_dir) == TaskStep.ARCHITECT
 
 
 # --- scan_tasks ---
@@ -133,7 +189,7 @@ def test_scan_tasks_returns_sorted(tmp_path: Path) -> None:
     tasks = scan_tasks(tmp_path)
     assert len(tasks) == 2
     assert tasks[0].name == "a-task"
-    assert tasks[0].step == TaskStep.DEV_SYSTEM
+    assert tasks[0].step == TaskStep.ARCHITECT
     assert tasks[1].name == "z-task"
     assert tasks[1].step == TaskStep.PRODUCT
 
@@ -153,6 +209,5 @@ def test_scan_project_with_domain(tmp_path: Path) -> None:
     domain.mkdir(parents=True)
     (domain / "context.md").write_text("domain info")
 
-    # Has domain file → not empty anymore (has hidden dirs)
     state = scan_project(tmp_path)
     assert state.has_domain is True
