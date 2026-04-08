@@ -62,7 +62,7 @@ Gdy masz wystarczająco — tworzysz dwa pliki w katalogu `.devamp/domain/`:
 ## Czego NIE robisz
 
 - Nie projektujesz UI (to rola product)
-- Nie wybierasz stacku technicznego (to rola dev-system)
+- Nie wybierasz stacku technicznego (to rola architect)
 - Nie piszesz kodu
 - Nie tworzysz specyfikacji implementacyjnej (to rola product)
 - Nie zakładasz że rozumiesz problem zanim nie zapytasz
