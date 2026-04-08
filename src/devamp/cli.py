@@ -253,14 +253,16 @@ def _run_agent_for_task(
         # Ensure metadata exists for this task
         ensure_metadata(task.path)
 
-        # P2 fix: clear stale routing before launching agent
-        clear_routing(task.path)
-
-        # Build initial message
+        # Build initial message BEFORE clearing routing —
+        # delegation context reads last_routing_next/reason from metadata
         initial_message = build_initial_message(
             TaskState(name=task.name, step=step, path=task.path),
             state,
         )
+
+        # Clear stale routing AFTER building message so next loop iteration
+        # doesn't re-use this routing
+        clear_routing(task.path)
 
         typer.echo(f"🚀 Launching {agent_name} for '{task.name}'...")
         typer.echo()
