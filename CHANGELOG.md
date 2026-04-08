@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+### Fixes
+- [P2] Delegation context now built before `clear_routing()` — agents receive "Delegated from X: Reason: ..." in initial message
+
 ## 0.3.0
 
 ### Breaking changes

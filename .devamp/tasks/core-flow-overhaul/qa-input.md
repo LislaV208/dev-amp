@@ -54,9 +54,16 @@ Przebudowa devamp z modelu "run-once-exit" na persistent dashboard loop z pełny
 | P3 README.md nieaktualny | Zaktualizowany |
 | P3 double routing recording | Routing parsowany tylko w `_run_agent_for_task` |
 
+## QA fix z sesji 2 — zastosowany
+
+| Issue | Fix |
+|---|---|
+| P2 clear_routing niszczy delegation context | `build_initial_message()` przed `clear_routing()` — agent dostaje delegation context |
+
 ## Na co QA powinien zwrócić uwagę
 
-1. **Stale routing defense** — czy `clear_routing()` jest wywoływany przed agent launch
+1. **Delegation context** — po backward delegation (np. QA → dev), dev agent powinien dostać "Delegated from qa: Reason: ..." w initial message
+2. **Stale routing defense** — `clear_routing()` nadal wywoływany, ale PO `build_initial_message`
 2. **Agent picker na single-repo** — czy pick architect → oczekuje system-analysis.md (nie qa-input.md)
 3. **Brak starych nazw** — grep na `developer-system`, `developer-multi`, `developer-single`, `dev-system`, `dev-multi`, `dev-single`, `READY_FOR_MULTI`, `READY_FOR_SINGLE`
 4. **Dashboard loop** — po akcji wraca do dashboard, Q kończy
@@ -66,4 +73,4 @@ Przebudowa devamp z modelu "run-once-exit" na persistent dashboard loop z pełny
 ## Routing
 
 Next: qa
-Reason: Implementation complete with all QA fixes from session 1. Ready for re-verification.
+Reason: Implementation complete with all QA fixes from sessions 1 and 2. Ready for re-verification.
