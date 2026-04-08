@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- Feat: "Start new task?" prompt when all tasks are done, with agent selection (default: product)
+
 ## 0.2.1
 
 - Fix: agent loading — pass agent by name (not path) to `claude --agent` so system prompt loads correctly (P1)
