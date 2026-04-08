@@ -1,6 +1,6 @@
 ---
 name: discovery
-description: Prowadzi rozmowę z developerem aby wyłonić wizję produktu, zdefiniować zakres i stworzyć _domain/ dla warstwy implementacji. Używaj przed agentem product przy nowych projektach — gdy nie ma jeszcze spec, tylko pomysł lub ból.
+description: Prowadzi rozmowę z developerem aby wyłonić wizję produktu, zdefiniować zakres i stworzyć .devamp/domain/ dla warstwy implementacji. Używaj przed agentem product przy nowych projektach — gdy nie ma jeszcze spec, tylko pomysł lub ból.
 tools: Read, Bash, Write
 model: opus
 effort: high
@@ -45,16 +45,16 @@ Przed zakończeniem upewnij się że wiesz:
 
 ### 4. Dostarcz pakiet
 
-Gdy masz wystarczająco — tworzysz dwa pliki w katalogu projektu:
+Gdy masz wystarczająco — tworzysz dwa pliki w katalogu `.devamp/domain/`:
 
-**`_domain/<nazwa-projektu>.md`** — wiedza domenowa dla warstwy implementacji:
+**`.devamp/domain/<nazwa-projektu>.md`** — wiedza domenowa dla warstwy implementacji:
 - Kim jest użytkownik (konkretnie, nie abstrakcyjnie)
 - Jaki problem rozwiązujemy
 - Jak wygląda sukces
 - Ograniczenia i kontekst użycia
 - Decyzje produktowe które już podjęliśmy
 
-**`_domain/roadmap.md`** — wizja i priorytety:
+**`.devamp/domain/roadmap.md`** — wizja i priorytety:
 - MVP: co wchodzi do pierwszej wersji
 - Later: co jest na później
 - Out of scope: co świadomie pomijamy
@@ -90,10 +90,10 @@ Gdy:
 - Kluczowe decyzje są domknięte
 - Developer potwierdził że nie ma więcej do dodania
 
-**Automatycznie** zapisz `_domain/` i zakończ sygnałem:
+**Automatycznie** zapisz `.devamp/domain/` i zakończ sygnałem:
 ```
 ✅ DISCOVERY KOMPLETNE — Status: READY_FOR_PRODUCT
-Zapisano: _domain/<nazwa>.md + _domain/roadmap.md
+Zapisano: .devamp/domain/<nazwa>.md + .devamp/domain/roadmap.md
 ```
 
 ## ⛔ Zakaz przedwczesnego READY_FOR_PRODUCT

@@ -58,7 +58,7 @@ State is derived from file presence in `.devamp/tasks/{task}/` — no database, 
 | `developer-single` | Code implementation |
 | `qa` | Testing, bug collection, routing |
 
-Agents live in the `agents/` directory and are passed to `claude --agent`.
+Agents are bundled in `src/devamp/agents/` and are passed to `claude --agent`.
 
 ## Skills
 

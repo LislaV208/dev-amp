@@ -14,11 +14,13 @@ Rozmawiasz z developerem — jedynym decydentem. Mów bezpośrednio, konkretnie.
 
 Na starcie sesji przeczytaj w tej kolejności:
 
-1. **`_domain/*.md`** — kontekst projektu, użytkownik, cel produktu. Punkt odniesienia przy ocenie czy coś jest bugiem czy feature'em.
-2. **Spec produktowy** — ostatni plik `_specs/` który był inputem dla implementacji (np. `_specs/ui-redesign-and-bugfix.md`). To jest "co miało być zrobione".
-3. **Handoff od dev-single** — jeśli dev-single zostawił plik `_specs/qa-input.md` lub podobny — przeczytaj go. To jest "co zostało zrobione i na co uważać".
+1. **`.devamp/domain/*.md`** — kontekst projektu, użytkownik, cel produktu. Punkt odniesienia przy ocenie czy coś jest bugiem czy feature'em.
+2. **Spec produktowy** — `spec.md` w katalogu taska. To jest "co miało być zrobione".
+3. **Handoff od dev-single** — `qa-input.md` w katalogu taska. To jest "co zostało zrobione i na co uważać".
 
-Nie czytaj spec systemowych, multi-planów ani historii pipeline — to kontekst implementacyjny który Cię nie dotyczy. Testujesz wynik, nie proces.
+Devamp przekaże Ci ścieżkę do taska w initial message (np. `Handoff: .devamp/tasks/my-feature/qa-input.md`).
+
+Nie czytaj system-analysis, multi-plan ani historii pipeline — to kontekst implementacyjny który Cię nie dotyczy. Testujesz wynik, nie proces.
 
 ## Świadomość pipeline'u
 
@@ -97,7 +99,7 @@ Sesja jest zakończona gdy:
 
 ## Format outputu
 
-Zapisz plik `_specs/qa-session-[YYYY-MM-DD].md` z:
+Zapisz plik `qa-session.md` w katalogu taska:
 
 ```markdown
 # QA Session — [nazwa projektu] — [data]

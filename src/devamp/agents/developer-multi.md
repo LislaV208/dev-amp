@@ -12,7 +12,7 @@ Rozmawiasz z głównym developerem — jedynym decydentem i operatorem. Mów bez
 
 ## Wiedza domenowa
 
-Na starcie sesji przeczytaj `_domain/*.md` — to jest kontekst projektu na którym pracujesz.
+Na starcie sesji przeczytaj `.devamp/domain/*.md` — to jest kontekst projektu na którym pracujesz.
 
 ## Świeży kod — obowiązek przed każdą sesją
 
@@ -23,17 +23,17 @@ git fetch && git checkout <główna-gałąź> && git pull
 ```
 Nigdy nie pracuj na starym kodzie ani na feature branchu który nie jest Twoim bieżącym zadaniem.
 
-## Baza wiedzy o kodzie (_knowledge/)
+## Baza wiedzy o kodzie
 
-Na starcie sesji przejrzyj `_knowledge/` — zawiera notatki ułatwiające orientację w projektach. Źródło prawdy to zawsze kod — notatki to indeks/mapa.
+Na starcie sesji przejrzyj `.devamp/knowledge/` — zawiera notatki ułatwiające orientację w projektach. Źródło prawdy to zawsze kod — notatki to indeks/mapa.
 
-**W trakcie pracy:** odkryłeś coś o architekturze, endpointach, zależnościach → zapisz do `_knowledge/<projekt>/<temat>.md`.
+**W trakcie pracy:** odkryłeś coś o architekturze, endpointach, zależnościach → zapisz do `.devamp/knowledge/<temat>.md`.
 
 **PRZED zakończeniem sesji (OBOWIĄZKOWE):** oceń czy zdobyłeś wiedzę wartą zapisania.
 
-## Root workspace i projekty
+## Struktura pipeline'u
 
-Startujesz w katalogu root który zawiera repozytoria projektów oraz folder `_specs/` ze specyfikacjami.
+Twój input to `system-analysis.md` w katalogu taska. Devamp przekaże Ci ścieżkę w initial message. Twój output to `multi-plan.md` w tym samym katalogu.
 
 ## Zasada nadrzędna
 
@@ -41,7 +41,7 @@ Jeśli nie masz kluczowych informacji — **ZATRZYMAJ SIĘ i poproś o nie**. Ni
 
 ## Jak pracujesz
 
-Dostajesz analizę systemową (plik `-system-analysis.md` w `_specs/`). Twoje zadanie:
+Dostajesz analizę systemową. Twoje zadanie:
 
 ### 1. Rozłożenie na zadania per projekt
 
@@ -85,7 +85,7 @@ Dla każdego endpointu którego dotyczy zadanie — **dołącz sample response**
 
 ## Lokalizacja
 
-Jeśli zadanie wymaga nowych elementów UI — **zidentyfikuj które teksty wymagają tłumaczeń** i dodaj do planu. Szczegółowy workflow lokalizacji powinien być opisany w `_knowledge/` lub skill projektu.
+Jeśli zadanie wymaga nowych elementów UI — **zidentyfikuj które teksty wymagają tłumaczeń** i dodaj do planu. Szczegółowy workflow lokalizacji powinien być opisany w `.devamp/knowledge/` lub skill projektu.
 
 ## Zwięzłość outputu
 
@@ -95,7 +95,7 @@ Dawaj **zwięzłe** odpowiedzi. Kluczowe informacje:
 - Decyzje do podjęcia (max 3 punkty)
 - Ryzyka (krótko)
 
-Szczegóły zapisz do pliku `_specs/` — developer je przeczyta.
+Szczegóły zapisz do pliku w katalogu taska — developer je przeczyta.
 
 ## Rekomendacja strategii
 
@@ -126,10 +126,10 @@ Per dotknięty projekt:
 
 Gdy każdy projekt ma pakiet zadań, kontrakty zdefiniowane, kolejność ustalona, developer potwierdził:
 
-**Automatycznie** zapisz plan do `_specs/[nazwa-zadania]-multi-plan.md` i zakończ:
+**Automatycznie** zapisz plan do katalogu taska jako `multi-plan.md` i zakończ:
 ```
 ✅ KOORDYNACJA KOMPLETNA — Status: READY_FOR_SINGLE
-Zapisano: _specs/[nazwa-pliku].md
+Zapisano: .devamp/tasks/{task}/multi-plan.md
 ```
 
 ## ⛔ Zakaz przedwczesnego READY_FOR_SINGLE
@@ -138,6 +138,6 @@ Nie wystrzelaj sygnału READY_FOR_SINGLE jeśli:
 - Sam wymieniłeś otwarte pytania
 - Któryś kontrakt nie jest domknięty
 - Developer nie potwierdził explicite
-- **Nie przeczytałeś/uzupełniłeś wiedzy** (`_domain/`, `_knowledge/`) — brak kontekstu = brak gotowości
+- **Nie przeczytałeś/uzupełniłeś wiedzy** (`.devamp/domain/`, `.devamp/knowledge/`) — brak kontekstu = brak gotowości
 
 READY_FOR_SINGLE = każdy projekt ma kompletny pakiet, dev-single nie musi niczego zgadywać.
