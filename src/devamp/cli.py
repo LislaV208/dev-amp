@@ -12,6 +12,7 @@ from .launcher import launch_agent
 from .pipeline import (
     STEP_EXPECTED_OUTPUT,
     STEP_TO_AGENT,
+    get_pipeline,
     resolve_step,
 )
 from .scanner import (
@@ -187,6 +188,40 @@ def _check_new_tasks(cwd: Path, state: ProjectState) -> bool:
     return False
 
 
+def _start_new_task(cwd: Path, state: ProjectState) -> None:
+    """Prompt user to start a new task, with agent selection (default: product)."""
+    start = typer.confirm("Start new task?", default=True)
+    if not start:
+        return
+
+    # Build agent choices from pipeline steps for this project type
+    pipeline = get_pipeline(state.project_type)
+    agents = [STEP_TO_AGENT[s] for s in pipeline if s in STEP_TO_AGENT]
+
+    # Show agent picker with product as default
+    typer.echo("Select agent:")
+    for i, name in enumerate(agents, 1):
+        default_marker = " (default)" if name == "product" else ""
+        typer.echo(f"  {i}. {name}{default_marker}")
+    typer.echo()
+
+    product_idx = agents.index("product") + 1 if "product" in agents else 1
+    choice = typer.prompt("Agent number", default=product_idx, type=int)
+
+    if not (1 <= choice <= len(agents)):
+        typer.echo("Invalid choice.")
+        return
+
+    agent_name = agents[choice - 1]
+
+    tasks_dir = cwd / TASKS_DIR
+    tasks_dir.mkdir(parents=True, exist_ok=True)
+
+    initial_message = f"Domain: {DOMAIN_DIR}/" if state.has_domain else None
+    launch_agent(agent_name, initial_message)
+    _check_new_tasks(cwd, state)
+
+
 def _get_most_recent_task(tasks: list[TaskState]) -> TaskState | None:
     """Get the most recently modified active task."""
     active = [t for t in tasks if t.step != TaskStep.DONE]
@@ -267,6 +302,8 @@ def main(
 
     if not active:
         typer.echo("All tasks are done.")
+        typer.echo()
+        _start_new_task(cwd, state)
         return
 
     if len(active) == 1:
