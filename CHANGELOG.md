@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Fix: agent loading — pass agent by name (not path) to `claude --agent` so system prompt loads correctly (P1)
+- Added `sync_agents()` — auto-copies bundled agents to `~/.claude/agents/` before each launch
+- Added `tests/test_launcher.py` with 4 tests for agent sync and validation
+
 ## 0.2.0
 
 - Fix: `_select_task` now displays resolved step instead of raw step (P2)
