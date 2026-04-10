@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -9,6 +10,7 @@ from pathlib import Path
 DEVAMP_DIR = ".devamp"
 TASKS_DIR = f"{DEVAMP_DIR}/tasks"
 DOMAIN_DIR = f"{DEVAMP_DIR}/domain"
+ROADMAP_FILE = f"{DOMAIN_DIR}/roadmap.md"
 
 
 class ProjectType(Enum):
@@ -41,6 +43,73 @@ class ProjectState:
     has_domain: bool
     tasks: list[TaskState] = field(default_factory=list)
     repos: list[str] = field(default_factory=list)
+
+
+@dataclass
+class RoadmapEpic:
+    """A single epic parsed from roadmap.md."""
+
+    name: str  # H2 heading (without "## ")
+    status: str  # "planned" | "in-progress" | "done"
+    content: str  # full section text (from H2 to next H2 or EOF, inclusive)
+
+
+def parse_roadmap(cwd: Path) -> list[RoadmapEpic]:
+    """Parse roadmap.md into a list of epics.
+
+    Reads ``{cwd}/.devamp/domain/roadmap.md``, splits on H2 headings and
+    extracts ``Status: <value>`` from the first 3 lines after each heading.
+
+    Returns an empty list when the file is missing, empty, or contains no
+    valid epics. Sections without a ``Status:`` line are silently skipped.
+    """
+    roadmap_path = cwd / ROADMAP_FILE
+    if not roadmap_path.is_file():
+        return []
+
+    text = roadmap_path.read_text(encoding="utf-8")
+    if not text.strip():
+        return []
+
+    # Split into sections by H2 headings.  re.split keeps the delimiter when
+    # wrapped in a capturing group, so we get: [preamble, "## X", body, "## Y", body, ...]
+    parts = re.split(r"^(## .+)$", text, flags=re.MULTILINE)
+
+    epics: list[RoadmapEpic] = []
+    # parts[0] is text before the first H2 (preamble) — skip it
+    # Then pairs: parts[1]=heading, parts[2]=body, parts[3]=heading, parts[4]=body, …
+    for i in range(1, len(parts), 2):
+        heading = parts[i]  # e.g. "## Nazwa epiku"
+        body = parts[i + 1] if i + 1 < len(parts) else ""
+
+        epic_name = heading.removeprefix("## ").strip()
+
+        # Look for "Status: <value>" in the first 3 non-empty lines of the body
+        status = _extract_status(body, max_lines=3)
+        if status is None:
+            continue
+
+        # content = full section including the H2 line
+        content = (heading + body).strip()
+        epics.append(RoadmapEpic(name=epic_name, status=status, content=content))
+
+    return epics
+
+
+def _extract_status(body: str, max_lines: int = 3) -> str | None:
+    """Extract status value from the first *max_lines* non-blank lines of *body*."""
+    count = 0
+    for line in body.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        count += 1
+        if count > max_lines:
+            break
+        match = re.match(r"^Status:\s*(.+)$", stripped, re.IGNORECASE)
+        if match:
+            return match.group(1).strip().lower()
+    return None
 
 
 def detect_project_type(cwd: Path) -> tuple[ProjectType, list[str]]:

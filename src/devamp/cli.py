@@ -29,11 +29,14 @@ from .pipeline import (
 from .routing import ROUTING_DONE, ROUTING_PIPELINE, parse_routing
 from .scanner import (
     DOMAIN_DIR,
+    ROADMAP_FILE,
     TASKS_DIR,
     ProjectState,
     ProjectType,
+    RoadmapEpic,
     TaskState,
     TaskStep,
+    parse_roadmap,
     scan_project,
     scan_tasks,
 )
@@ -494,8 +497,142 @@ def _pick_new_task(new_tasks: list[TaskState]) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+def _update_epic_status(cwd: Path, epic_name: str, new_status: str) -> None:
+    """Update the Status: line for *epic_name* in roadmap.md.
+
+    Performs a precise single-line replacement to preserve formatting.
+    Silent no-op if the section or file is not found.
+    """
+    import re
+
+    roadmap_path = cwd / ROADMAP_FILE
+    if not roadmap_path.is_file():
+        return
+
+    text = roadmap_path.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+
+    # Find the H2 heading, then replace the first Status: line after it
+    found_heading = False
+    lines_after_heading = 0
+    for idx, line in enumerate(lines):
+        if line.strip() == f"## {epic_name}":
+            found_heading = True
+            lines_after_heading = 0
+            continue
+
+        if found_heading:
+            # Stop searching if we hit the next H2
+            if line.startswith("## "):
+                break
+
+            if line.strip():
+                lines_after_heading += 1
+
+            if lines_after_heading > 3:
+                break
+
+            if re.match(r"^Status:\s*.+$", line.strip(), re.IGNORECASE):
+                # Preserve original indentation (if any)
+                leading = line[: len(line) - len(line.lstrip())]
+                lines[idx] = f"{leading}Status: {new_status}\n"
+                roadmap_path.write_text("".join(lines), encoding="utf-8")
+                return
+
+
+def _pick_epic(epics: list[RoadmapEpic]) -> RoadmapEpic | None:
+    """Show epic picker and return chosen epic, or None for ad-hoc."""
+    in_progress = [e for e in epics if e.status == "in-progress"]
+    planned = [e for e in epics if e.status == "planned"]
+    ordered = in_progress + planned
+
+    typer.echo("Roadmap epics:")
+    for i, epic in enumerate(ordered, 1):
+        marker = "🔄 " if epic.status == "in-progress" else ""
+        typer.echo(f"  {i}. {marker}{epic.name}")
+    typer.echo("  [A] Ad hoc (free-form task)")
+    typer.echo()
+
+    raw = typer.prompt("Choice", default="1").strip().upper()
+
+    if raw == "A":
+        return None
+
+    try:
+        idx = int(raw)
+        if 1 <= idx <= len(ordered):
+            return ordered[idx - 1]
+    except ValueError:
+        pass
+
+    typer.echo("Invalid choice.")
+    return None
+
+
 def _start_new_task(cwd: Path, state: ProjectState) -> str:
     """Start a new task. Returns "dashboard", "quit", or "new_task"."""
+    # Check roadmap for available epics
+    epics = parse_roadmap(cwd)
+    actionable = [e for e in epics if e.status in ("in-progress", "planned")]
+
+    if actionable:
+        epic = _pick_epic(actionable)
+        if epic is not None:
+            return _start_epic_task(cwd, state, epic)
+        # User chose ad-hoc — fall through to agent picker
+
+    return _start_adhoc_task(cwd, state)
+
+
+def _start_epic_task(cwd: Path, state: ProjectState, epic: RoadmapEpic) -> str:
+    """Start a new task from a roadmap epic. Returns "dashboard", "quit", or "new_task"."""
+    # Mark as in-progress if planned
+    if epic.status == "planned":
+        _update_epic_status(cwd, epic.name, "in-progress")
+        # Update content to reflect new status for the initial message
+        import re
+
+        updated_content = re.sub(
+            r"(?im)^Status:\s*planned$",
+            "Status: in-progress",
+            epic.content,
+            count=1,
+        )
+        epic = RoadmapEpic(
+            name=epic.name,
+            status="in-progress",
+            content=updated_content,
+        )
+
+    tasks_dir = cwd / TASKS_DIR
+    tasks_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build initial message with epic context
+    initial_message = f"Domain: {DOMAIN_DIR}/\n\nRoadmap epic:\n{epic.content}"
+    exit_code, session_id = launch_agent("product", initial_message)
+
+    new_tasks = _check_new_tasks(cwd, state)
+    if new_tasks:
+        for t in new_tasks:
+            record_session(t.path, "product", session_id)
+
+        chosen_name = _pick_new_task(new_tasks)
+        if chosen_name:
+            new_state = scan_project(cwd)
+            new_task = next((t for t in new_state.tasks if t.name == chosen_name), None)
+            if new_task:
+                cont = typer.confirm(f'Continue with "{chosen_name}"?', default=True)
+                if cont:
+                    return _run_agent_for_task(new_task, new_state, cwd)
+
+    return "dashboard"
+
+
+def _start_adhoc_task(cwd: Path, state: ProjectState) -> str:
+    """Start an ad-hoc task (original agent-picker flow).
+
+    Returns "dashboard", "quit", or "new_task".
+    """
     typer.echo("Select agent for new task:")
     for i, name in enumerate(ALL_AGENTS, 1):
         default_marker = " (default)" if name == "product" else ""

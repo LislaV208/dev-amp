@@ -35,7 +35,7 @@ On first run in an empty directory, devamp launches the **discovery** agent to e
 Discovery → Product → Architect → Planner → Dev → QA
 ```
 
-Single-repo projects skip `Architect` and `Planner` — pipeline goes straight from `Product` to `Dev`.
+All project types run the full pipeline. When starting a new task, devamp checks `roadmap.md` for actionable epics — pick one to launch `product` with context, or choose ad-hoc for a free-form task.
 
 ## Architecture
 
@@ -43,7 +43,7 @@ Single-repo projects skip `Architect` and `Planner` — pipeline goes straight f
 src/devamp/
   cli.py        — typer entry point, dashboard loop, re-entry/cascade, multi-task picker
   scanner.py    — detect project type (empty/single/multi-repo), read task states
-  pipeline.py   — step ordering, skip logic for single-repo
+  pipeline.py   — step ordering, step→agent mapping
   context.py    — build initial message per agent, delegation context
   launcher.py   — run `claude --agent` as interactive subprocess, session tracking
   metadata.py   — task metadata persistence (timestamps, sessions, routing)
