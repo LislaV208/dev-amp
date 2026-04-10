@@ -324,10 +324,12 @@ def _run_agent_for_task(
 
         # Check for new task directories (product agent creates the task dir)
         if step == TaskStep.PRODUCT:
-            new_task_name = _check_new_tasks(cwd, state)
-            if new_task_name:
-                state = scan_project(cwd)
-                task = next((t for t in state.tasks if t.name == new_task_name), task)
+            new_tasks = _check_new_tasks(cwd, state)
+            if new_tasks:
+                chosen_name = _pick_new_task(new_tasks)
+                if chosen_name:
+                    state = scan_project(cwd)
+                    task = next((t for t in state.tasks if t.name == chosen_name), task)
 
         # Determine expected output file from agent name (not step!)
         # This fixes P2: when user picks architect on single-repo, expected_file
@@ -450,18 +452,40 @@ def _run_cascade(
     return "dashboard"
 
 
-def _check_new_tasks(cwd: Path, state: ProjectState) -> str | None:
-    """Check for newly created task directories. Returns new task name or None."""
+def _check_new_tasks(cwd: Path, state: ProjectState) -> list[TaskState]:
+    """Check for newly created task directories. Returns list of new tasks."""
     current_tasks = scan_tasks(cwd)
     existing_names = {t.name for t in state.tasks}
     new_tasks = [t for t in current_tasks if t.name not in existing_names]
 
-    if new_tasks:
-        for t in new_tasks:
-            typer.echo(f"Task created: {t.name}")
-            ensure_metadata(t.path)
+    for t in new_tasks:
+        ensure_metadata(t.path)
+
+    return new_tasks
+
+
+def _pick_new_task(new_tasks: list[TaskState]) -> str | None:
+    """Show list of newly created tasks and let user pick one to continue with.
+
+    Returns the chosen task name, or None if user declines.
+    """
+    if not new_tasks:
+        return None
+
+    if len(new_tasks) == 1:
+        typer.echo(f"Task created: {new_tasks[0].name}")
         return new_tasks[0].name
 
+    typer.echo("New tasks created:")
+    for i, t in enumerate(new_tasks, 1):
+        typer.echo(f"  {i}. {t.name}")
+    typer.echo()
+
+    choice = typer.prompt("Which task to continue with?", default=1, type=int)
+    if 1 <= choice <= len(new_tasks):
+        return new_tasks[choice - 1].name
+
+    typer.echo("Invalid choice.")
     return None
 
 
@@ -493,15 +517,20 @@ def _start_new_task(cwd: Path, state: ProjectState) -> str:
     initial_message = f"Domain: {DOMAIN_DIR}/" if state.has_domain else None
     exit_code, session_id = launch_agent(agent_name, initial_message)
 
-    new_task_name = _check_new_tasks(cwd, state)
-    if new_task_name:
-        new_state = scan_project(cwd)
-        new_task = next((t for t in new_state.tasks if t.name == new_task_name), None)
-        if new_task:
-            record_session(new_task.path, agent_name, session_id)
-            cont = typer.confirm(f'Continue with "{new_task_name}"?', default=True)
-            if cont:
-                return _run_agent_for_task(new_task, new_state, cwd)
+    new_tasks = _check_new_tasks(cwd, state)
+    if new_tasks:
+        # Record session on all new tasks (they came from this agent session)
+        for t in new_tasks:
+            record_session(t.path, agent_name, session_id)
+
+        chosen_name = _pick_new_task(new_tasks)
+        if chosen_name:
+            new_state = scan_project(cwd)
+            new_task = next((t for t in new_state.tasks if t.name == chosen_name), None)
+            if new_task:
+                cont = typer.confirm(f'Continue with "{chosen_name}"?', default=True)
+                if cont:
+                    return _run_agent_for_task(new_task, new_state, cwd)
 
     return "dashboard"
 

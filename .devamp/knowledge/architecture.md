@@ -117,3 +117,14 @@ Re-entry = user picks an agent earlier in the pipeline than the current step.
 - `context.build_cascade_message()` — "upstream changed" initial message
 - `cli._run_cascade()` — semi-automatic cascade loop
 - `cli._pick_agent()` — re-entry detection + warning
+
+## Multi-task output (v0.4.0)
+
+Product/discovery agent can create N task directories in one session.
+
+- `_check_new_tasks()` returns `list[TaskState]` (was `str | None`)
+- `_pick_new_task()` — shows numbered list if >1 new tasks, asks user to pick one
+- Session ID recorded on ALL new tasks (they came from the same agent session)
+- Chosen task continues immediately, remaining tasks appear on dashboard
+- For 1 task: prints name, no picker — direct flow like before
+- For 0 tasks: returns empty list, no interaction
