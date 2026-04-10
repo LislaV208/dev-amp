@@ -22,9 +22,12 @@ devamp
 
 # Resume most recently active task
 devamp --resume
+
+# Run discovery agent directly (domain capture / strategy)
+devamp domain
 ```
 
-On first run in an empty directory, devamp launches the **discovery** agent to establish domain context.
+On first run in an empty directory, devamp launches the **discovery** agent to establish domain context. For existing projects, use `devamp domain` or the `[D] Domain / Strategy` dashboard option to update domain knowledge or plan direction.
 
 ## Pipeline
 
@@ -38,7 +41,7 @@ Single-repo projects skip `Architect` and `Planner` — pipeline goes straight f
 
 ```
 src/devamp/
-  cli.py        — typer entry point, persistent dashboard loop, post-agent menus
+  cli.py        — typer entry point, dashboard loop, re-entry/cascade, multi-task picker
   scanner.py    — detect project type (empty/single/multi-repo), read task states
   pipeline.py   — step ordering, skip logic for single-repo
   context.py    — build initial message per agent, delegation context
@@ -49,11 +52,17 @@ src/devamp/
 
 State is derived from routing metadata (priority) and file presence in `.devamp/tasks/{task}/` (fallback).
 
+## Key features
+
+- **Re-entry & cascade:** Pick an earlier agent to revisit — devamp warns about stale artifacts and cascades updates through downstream agents
+- **Multi-task output:** Product/discovery agent can create multiple tasks in one session — picker shown, remaining tasks land on dashboard
+- **Domain knowledge:** `domain/context.md` (business facts) + `domain/roadmap.md` (priorities) — separate from technical `knowledge/`
+
 ## Agents
 
 | Agent | Role |
 |-------|------|
-| `discovery` | Extract product vision from conversation with developer/client |
+| `discovery` | Domain knowledge — setup, domain capture, or strategy (3 modes) |
 | `product` | Product analysis, spec, UX |
 | `architect` | System-wide impact analysis |
 | `planner` | Coordination across repos |
