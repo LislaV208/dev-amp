@@ -395,12 +395,27 @@ def _start_new_task(cwd: Path, state: ProjectState) -> str:
 
 
 def _run_discovery(cwd: Path, state: ProjectState) -> None:
-    """Run discovery agent for empty projects."""
+    """Run discovery agent.
+
+    Works in all three discovery modes:
+    - Setup: no domain/ yet (empty project) → creates domain files
+    - Domain capture: domain/ exists but sparse → updates context.md
+    - Strategy: domain/ filled, user returns → updates roadmap.md
+
+    The agent itself determines which mode to use based on domain/ state
+    and user intent.
+    """
     while True:
-        typer.echo("🔍 Empty project — starting discovery agent...")
+        if state.has_domain:
+            typer.echo("🔍 Starting discovery agent (domain / strategy)...")
+        else:
+            typer.echo("🔍 Empty project — starting discovery agent...")
         typer.echo()
 
-        exit_code, _session_id = launch_agent("discovery")
+        # Pass domain context if it exists so the agent can detect mode
+        initial_message = f"Domain: {DOMAIN_DIR}/" if state.has_domain else None
+
+        exit_code, _session_id = launch_agent("discovery", initial_message)
 
         if exit_code != 0:
             typer.echo(f"Agent exited with code {exit_code}.")
@@ -408,7 +423,7 @@ def _run_discovery(cwd: Path, state: ProjectState) -> None:
 
         domain_dir = cwd / DOMAIN_DIR
         if domain_dir.is_dir() and any(domain_dir.glob("*.md")):
-            typer.echo("✅ Discovery complete — domain files created.")
+            typer.echo("✅ Discovery complete — domain files updated.")
             return
 
         retry = typer.confirm("Agent did not produce expected output. Retry?", default=True)
@@ -432,6 +447,14 @@ def _get_most_recent_task(tasks: list[TaskState]) -> TaskState | None:
 # ---------------------------------------------------------------------------
 # Main entry — dashboard loop
 # ---------------------------------------------------------------------------
+
+
+@app.command()
+def domain() -> None:
+    """Run discovery agent for domain / strategy sessions."""
+    cwd = Path.cwd()
+    state = scan_project(cwd)
+    _run_discovery(cwd, state)
 
 
 @app.callback(invoke_without_command=True)
@@ -492,6 +515,8 @@ def main(
             for i, t in enumerate(active, 1):
                 options.append(f"  [{i}] Continue '{t.name}'")
         options.append("  [N] Start new task")
+        if state.project_type != ProjectType.EMPTY:
+            options.append("  [D] Domain / Strategy")
         options.append("  [Q] Quit")
 
         for opt in options:
@@ -507,6 +532,10 @@ def main(
             result = _start_new_task(cwd, state)
             if result == "quit":
                 return
+            continue
+
+        if choice == "D" and state.project_type != ProjectType.EMPTY:
+            _run_discovery(cwd, state)
             continue
 
         try:
