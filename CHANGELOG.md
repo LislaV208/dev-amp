@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0
+
+### Breaking changes
+- **Full pipeline for all project types:** Single-repo and empty projects now run the full pipeline (product → architect → planner → dev → qa). Previously architect & planner were skipped.
+
+### Fixes
+- [P2] Agents no longer auto-resume previous sessions during pipeline flow — `claude --resume` ignores positional arguments, so agents were starting without context. Each pipeline step now gets a fresh session with proper initial message.
+- [P3] Architect initial message no longer includes empty "Repos:" suffix for single-repo projects
+
+### Removed
+- `SINGLE_REPO_SKIP` constant from `pipeline.py`
+
 ## 0.4.1
 
 ### Fixes

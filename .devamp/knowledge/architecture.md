@@ -16,7 +16,7 @@ routing.py → (standalone, regex parsing)
 
 - **Agents dir resolution:** `launcher.py` resolves agents path from `__file__/../agents/` — agents are bundled inside the package at `src/devamp/agents/`. Works with both `pip install -e .` and `pipx install .`.
 - **State priority:** Routing from metadata (last_routing_next) has priority over file-based detection. File presence is fallback for backward compatibility and initial state.
-- **Session tracking:** devamp generates a UUID before launching claude and passes it via `--session-id`. This means we always know the session ID. For resume, we pass `--resume <session_id>`.
+- **Session tracking:** devamp generates a UUID before launching claude and passes it via `--session-id`. Sessions are NOT auto-resumed during normal pipeline flow — `claude --resume` ignores positional arguments (initial_message), so agents would start without context. Resume is only used for explicit `--resume` from CLI.
 - **Stale routing defense:** `clear_routing()` is called before every agent launch. If agent doesn't produce `## Routing`, metadata stays clean — no stale routing loops.
 - **Expected output by agent name:** `AGENT_EXPECTED_OUTPUT[agent_name]` is used instead of `STEP_EXPECTED_OUTPUT[step]` to correctly handle manual agent picks (e.g. architect on single-repo).
 - **subprocess.run without shell:** `claude` CLI is called directly, stdin/stdout inherited from parent process (interactive mode).
@@ -32,10 +32,9 @@ routing.py → (standalone, regex parsing)
 
 ## Pipeline
 
-Full: product → architect → planner → dev → qa → done
-Single-repo skip: architect, planner (product → dev → qa → done)
+All project types: product → architect → planner → dev → qa → done (no skip logic).
 
-`resolve_step()` handles the case where task state points to a skipped step.
+`resolve_step()` has a safety net for steps not in pipeline, but in practice all steps are always present.
 
 ## Routing mechanism
 

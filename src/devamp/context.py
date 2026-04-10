@@ -60,8 +60,10 @@ def _base_message(task: TaskState, project_state: ProjectState) -> str | None:
         return None
 
     if step == TaskStep.ARCHITECT:
-        repos_str = ", ".join(project_state.repos)
-        return f"Spec: {task_dir}/spec.md. Repos: {repos_str}"
+        if project_state.repos:
+            repos_str = ", ".join(project_state.repos)
+            return f"Spec: {task_dir}/spec.md. Repos: {repos_str}"
+        return f"Spec: {task_dir}/spec.md"
 
     if step == TaskStep.PLANNER:
         return f"System analysis: {task_dir}/system-analysis.md"

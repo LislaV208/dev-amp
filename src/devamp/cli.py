@@ -13,7 +13,6 @@ from .metadata import (
     clear_routing,
     ensure_metadata,
     get_created_at,
-    get_session_id,
     record_routing,
     record_session,
 )
@@ -301,8 +300,10 @@ def _run_agent_for_task(
         typer.echo(f"🚀 Launching {agent_name} for '{task.name}'...")
         typer.echo()
 
-        # Session tracking: resume if agent has a previous session on this task
-        existing_session = get_session_id(task.path, agent_name)
+        # Don't resume previous sessions during normal pipeline flow —
+        # claude --resume may ignore the initial_message positional argument,
+        # which means the agent starts without context.
+        # Sessions are only resumed via explicit --resume from the CLI.
 
         # For multi-repo, give agent access to all repo directories
         add_dirs = None
@@ -313,7 +314,6 @@ def _run_agent_for_task(
             agent_name,
             initial_message,
             add_dirs,
-            session_id=existing_session,
         )
 
         # Record session ID
@@ -423,9 +423,8 @@ def _run_cascade(
             upstream_agent,
         )
 
-        # Resume existing session if available
-        existing_session = get_session_id(task.path, agent_name)
-
+        # Don't resume previous sessions during cascade — same reason as
+        # _run_agent_for_task: --resume ignores positional initial_message.
         add_dirs = None
         if state.project_type == ProjectType.MULTI and state.repos:
             add_dirs = [str(cwd / repo) for repo in state.repos]
@@ -434,7 +433,6 @@ def _run_cascade(
             agent_name,
             cascade_message,
             add_dirs,
-            session_id=existing_session,
         )
 
         record_session(task.path, agent_name, session_id)

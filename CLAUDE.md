@@ -19,7 +19,7 @@ devamp domain             # run discovery agent directly
 7 modules in `src/devamp/`:
 - `cli.py` — typer entry point, persistent dashboard loop, post-agent menus, --resume flag, re-entry/cascade, multi-task picker
 - `scanner.py` — detect project type (empty/single/multi-repo), read task states from `.devamp/tasks/`
-- `pipeline.py` — step ordering, skip logic (single-repo skips architect & planner), step→agent mapping, re-entry detection
+- `pipeline.py` — step ordering, step→agent mapping, re-entry detection
 - `context.py` — build initial message per agent based on pipeline state, delegation context, cascade context
 - `launcher.py` — run `claude --agent` as interactive subprocess, session tracking (UUID)
 - `metadata.py` — task metadata persistence (created_at, sessions, routing) in task-metadata.json
@@ -35,7 +35,7 @@ Agents live in `src/devamp/agents/` directory (bundled with package):
 
 ## Key concepts
 - Project type detected by CWD structure (no LLM)
-- Pipeline: product → architect → planner → dev → qa → done (single-repo skips architect & planner)
+- Pipeline: product → architect → planner → dev → qa → done (all project types, no skip)
 - Pipeline state per task determined by: 1) routing from metadata, 2) file presence (fallback)
 - Each agent session is interactive — devamp does NOT proxy the conversation
 - Session tracking: devamp generates UUID for each session, resumes via `claude --resume <id>`

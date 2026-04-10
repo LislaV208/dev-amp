@@ -29,12 +29,13 @@ def test_full_pipeline_for_multi() -> None:
     ]
 
 
-def test_single_pipeline_skips_architect_and_planner() -> None:
+def test_single_pipeline_is_full() -> None:
+    """Single-repo projects now use full pipeline (no skip)."""
     pipeline = get_pipeline(ProjectType.SINGLE)
-    assert TaskStep.ARCHITECT not in pipeline
-    assert TaskStep.PLANNER not in pipeline
     assert pipeline == [
         TaskStep.PRODUCT,
+        TaskStep.ARCHITECT,
+        TaskStep.PLANNER,
         TaskStep.DEV,
         TaskStep.QA,
         TaskStep.DONE,
@@ -45,6 +46,12 @@ def test_empty_pipeline_same_as_single() -> None:
     assert get_pipeline(ProjectType.EMPTY) == get_pipeline(ProjectType.SINGLE)
 
 
+def test_all_project_types_same_pipeline() -> None:
+    """All project types use the same full pipeline."""
+    assert get_pipeline(ProjectType.SINGLE) == get_pipeline(ProjectType.MULTI)
+    assert get_pipeline(ProjectType.EMPTY) == get_pipeline(ProjectType.MULTI)
+
+
 # --- resolve_step ---
 
 
@@ -53,14 +60,14 @@ def test_resolve_step_multi_keeps_all_steps() -> None:
         assert resolve_step(step, ProjectType.MULTI) == step
 
 
-def test_resolve_step_single_skips_architect_to_dev() -> None:
-    result = resolve_step(TaskStep.ARCHITECT, ProjectType.SINGLE)
-    assert result == TaskStep.DEV
+def test_resolve_step_single_keeps_architect() -> None:
+    """Architect is now part of single-repo pipeline."""
+    assert resolve_step(TaskStep.ARCHITECT, ProjectType.SINGLE) == TaskStep.ARCHITECT
 
 
-def test_resolve_step_single_skips_planner_to_dev() -> None:
-    result = resolve_step(TaskStep.PLANNER, ProjectType.SINGLE)
-    assert result == TaskStep.DEV
+def test_resolve_step_single_keeps_planner() -> None:
+    """Planner is now part of single-repo pipeline."""
+    assert resolve_step(TaskStep.PLANNER, ProjectType.SINGLE) == TaskStep.PLANNER
 
 
 def test_resolve_step_single_keeps_product() -> None:
@@ -79,15 +86,12 @@ def test_resolve_step_done_stays_done() -> None:
 # --- get_next_step ---
 
 
-def test_get_next_step_single_product_to_dev() -> None:
-    assert get_next_step(TaskStep.PRODUCT, ProjectType.SINGLE) == TaskStep.DEV
-
-
-def test_get_next_step_single_dev_to_qa() -> None:
+def test_get_next_step_single_full_sequence() -> None:
+    """Single-repo now follows full pipeline like multi."""
+    assert get_next_step(TaskStep.PRODUCT, ProjectType.SINGLE) == TaskStep.ARCHITECT
+    assert get_next_step(TaskStep.ARCHITECT, ProjectType.SINGLE) == TaskStep.PLANNER
+    assert get_next_step(TaskStep.PLANNER, ProjectType.SINGLE) == TaskStep.DEV
     assert get_next_step(TaskStep.DEV, ProjectType.SINGLE) == TaskStep.QA
-
-
-def test_get_next_step_single_qa_to_done() -> None:
     assert get_next_step(TaskStep.QA, ProjectType.SINGLE) == TaskStep.DONE
 
 
@@ -151,16 +155,22 @@ def test_is_before_step_multi_architect_before_dev() -> None:
     assert is_before_step("architect", TaskStep.DEV, ProjectType.MULTI) is True
 
 
-def test_is_before_step_skipped_agent_single() -> None:
-    """Architect is not in single-repo pipeline, so not 'before' anything."""
-    assert is_before_step("architect", TaskStep.DEV, ProjectType.SINGLE) is False
+def test_is_before_step_architect_before_dev_single() -> None:
+    """Architect is now in single-repo pipeline, so it IS before dev."""
+    assert is_before_step("architect", TaskStep.DEV, ProjectType.SINGLE) is True
 
 
 # --- get_downstream_agents ---
 
 
 def test_get_downstream_agents_product_single() -> None:
-    assert get_downstream_agents("product", ProjectType.SINGLE) == ["dev", "qa"]
+    """Single-repo now includes architect and planner downstream."""
+    assert get_downstream_agents("product", ProjectType.SINGLE) == [
+        "architect",
+        "planner",
+        "dev",
+        "qa",
+    ]
 
 
 def test_get_downstream_agents_dev_single() -> None:

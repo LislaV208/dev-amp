@@ -14,31 +14,27 @@ FULL_PIPELINE: list[TaskStep] = [
     TaskStep.DONE,
 ]
 
-# Steps to skip for single-repo projects (architect and planner)
-SINGLE_REPO_SKIP = {TaskStep.ARCHITECT, TaskStep.PLANNER}
-
 
 def get_pipeline(project_type: ProjectType) -> list[TaskStep]:
-    """Return ordered pipeline steps for a given project type."""
-    if project_type == ProjectType.MULTI:
-        return FULL_PIPELINE
+    """Return ordered pipeline steps for a given project type.
 
-    # Single-repo and empty: product → dev → qa → done
-    return [s for s in FULL_PIPELINE if s not in SINGLE_REPO_SKIP]
+    All project types use the full pipeline: product → architect → planner → dev → qa → done.
+    """
+    return list(FULL_PIPELINE)
 
 
 def resolve_step(current_step: TaskStep, project_type: ProjectType) -> TaskStep:
-    """Resolve the actual next step, accounting for skip logic.
+    """Resolve the actual next step.
 
-    For single-repo: if task state points to architect or planner,
-    skip forward to dev.
+    Safety net: if the step is somehow not in the pipeline, skip forward
+    to the next valid step.
     """
     pipeline = get_pipeline(project_type)
 
     if current_step in pipeline:
         return current_step
 
-    # Step is not in this pipeline (e.g. architect for single-repo) — skip forward
+    # Step is not in this pipeline — skip forward (safety net)
     full_idx = FULL_PIPELINE.index(current_step)
     for step in FULL_PIPELINE[full_idx + 1 :]:
         if step in pipeline:
