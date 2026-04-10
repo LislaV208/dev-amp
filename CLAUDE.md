@@ -11,15 +11,16 @@ pip install -e .          # dev install
 ruff check src/           # lint
 ruff format src/          # format
 python3.11 -m pytest tests/ -v  # tests
-devamp                    # run CLI
+devamp                    # run CLI (dashboard)
+devamp domain             # run discovery agent directly
 ```
 
 ## Architecture
 7 modules in `src/devamp/`:
-- `cli.py` — typer entry point, persistent dashboard loop, post-agent menus, --resume flag
+- `cli.py` — typer entry point, persistent dashboard loop, post-agent menus, --resume flag, re-entry/cascade, multi-task picker
 - `scanner.py` — detect project type (empty/single/multi-repo), read task states from `.devamp/tasks/`
-- `pipeline.py` — step ordering, skip logic (single-repo skips architect & planner), step→agent mapping
-- `context.py` — build initial message per agent based on pipeline state, delegation context
+- `pipeline.py` — step ordering, skip logic (single-repo skips architect & planner), step→agent mapping, re-entry detection
+- `context.py` — build initial message per agent based on pipeline state, delegation context, cascade context
 - `launcher.py` — run `claude --agent` as interactive subprocess, session tracking (UUID)
 - `metadata.py` — task metadata persistence (created_at, sessions, routing) in task-metadata.json
 - `routing.py` — parse `## Routing` section from agent output files
@@ -30,7 +31,7 @@ Agents live in `src/devamp/agents/` directory (bundled with package):
 - `planner.md` — koordynacja między projektami (dawniej developer-multi)
 - `dev.md` — implementacja (dawniej developer-single)
 - `qa.md` — weryfikacja jakości
-- `discovery.md` — discovery dla nowych projektów
+- `discovery.md` — discovery / domain capture / strategy (3 modes)
 
 ## Key concepts
 - Project type detected by CWD structure (no LLM)
@@ -41,3 +42,6 @@ Agents live in `src/devamp/agents/` directory (bundled with package):
 - Agent routing: agents write `## Routing` section in output, devamp parses it for next step
 - Dashboard is a persistent loop — runs until user quits
 - devamp is a thin wrapper around `claude` CLI
+- Re-entry: picking an earlier agent warns about stale artifacts, triggers cascade to downstream agents
+- Multi-task: product/discovery can create N tasks per session — picker shown, rest on dashboard
+- Domain: `domain/context.md` + `domain/roadmap.md` — business knowledge, separate from `knowledge/` (technical)

@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.0
+
+### Features
+- **Discovery 3 modes:** Discovery agent now supports setup, domain capture, and strategy modes — auto-detected from `domain/` state and user intent
+- **Domain convention:** Standardized `domain/context.md` + `domain/roadmap.md` as minimum domain files
+- **Dashboard [D] option:** New `[D] Domain / Strategy` option on dashboard for non-empty projects
+- **`devamp domain` CLI shortcut:** Run discovery agent directly without going through dashboard
+- **Product agent domain-first:** Product agent reads `domain/` for business context first, uses code only for UI/navigation reference
+- **Re-entry detection:** When user picks an agent earlier in pipeline, devamp warns about stale downstream artifacts and asks confirmation
+- **Cascade after re-entry:** Semi-automatic cascade through downstream agents after upstream re-entry — each agent gets "upstream changed" context
+- **Multi-task output:** Product/discovery agent can create N task directories per session — picker shown when multiple tasks created, remaining tasks appear on dashboard
+- **Dev agent flow check:** New practice in dev agent prompt — mental flow testing after implementation to catch logic bugs
+
+### New functions
+- `pipeline.is_before_step()` — detect if agent is earlier in pipeline than current step
+- `pipeline.get_downstream_agents()` — list agents downstream from given agent
+- `pipeline.AGENT_TO_STEP` — reverse mapping of STEP_TO_AGENT
+- `context.build_cascade_message()` — build "upstream changed" initial message for cascade agents
+- `cli._run_cascade()` — semi-automatic cascade loop
+- `cli._pick_new_task()` — multi-task picker
+
+### Tests
+- 75 tests total (up from 64): new tests for `is_before_step` and `get_downstream_agents`
+
 ## 0.3.1
 
 ### Fixes
