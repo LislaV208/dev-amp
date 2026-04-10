@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .metadata import load_metadata
+from .pipeline import AGENT_EXPECTED_OUTPUT
 from .scanner import DOMAIN_DIR, ProjectState, TaskState, TaskStep
 
 
@@ -23,6 +24,29 @@ def build_initial_message(
     if delegation:
         return delegation
     return base
+
+
+def build_cascade_message(
+    task: TaskState,
+    project_state: ProjectState,
+    upstream_agent: str,
+) -> str | None:
+    """Build initial message for a downstream agent during cascade.
+
+    Tells the agent that upstream artifact changed and it should update its output.
+    """
+    upstream_output = AGENT_EXPECTED_OUTPUT.get(upstream_agent)
+    upstream_ref = f" ({task.path}/{upstream_output})" if upstream_output else ""
+
+    cascade_ctx = (
+        f"Upstream artifact changed{upstream_ref}. "
+        f"Review the updated input and update your output accordingly."
+    )
+
+    base = _base_message(task, project_state)
+    if base:
+        return f"{cascade_ctx}\n\n{base}"
+    return cascade_ctx
 
 
 def _base_message(task: TaskState, project_state: ProjectState) -> str | None:

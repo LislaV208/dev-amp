@@ -88,3 +88,34 @@ STEP_EXPECTED_OUTPUT: dict[TaskStep, str] = {
 
 # All agent names (for agent picker — independent of project type)
 ALL_AGENTS: list[str] = ["product", "architect", "planner", "dev", "qa"]
+
+# Agent name → pipeline step (reverse of STEP_TO_AGENT)
+AGENT_TO_STEP: dict[str, TaskStep] = {v: k for k, v in STEP_TO_AGENT.items()}
+
+
+def is_before_step(agent_name: str, current_step: TaskStep, project_type: ProjectType) -> bool:
+    """Check if an agent is earlier in the pipeline than the current step.
+
+    Used to detect re-entry — when a user picks an agent that's before
+    the task's current position in the pipeline.
+    """
+    pipeline = get_pipeline(project_type)
+    agent_step = AGENT_TO_STEP.get(agent_name)
+    if agent_step is None or agent_step not in pipeline or current_step not in pipeline:
+        return False
+    return pipeline.index(agent_step) < pipeline.index(current_step)
+
+
+def get_downstream_agents(agent_name: str, project_type: ProjectType) -> list[str]:
+    """Get list of agent names downstream from the given agent in the pipeline.
+
+    Returns agents between the given agent and DONE (exclusive of both).
+    Used for cascade after re-entry.
+    """
+    pipeline = get_pipeline(project_type)
+    agent_step = AGENT_TO_STEP.get(agent_name)
+    if agent_step is None or agent_step not in pipeline:
+        return []
+    idx = pipeline.index(agent_step)
+    downstream_steps = [s for s in pipeline[idx + 1 :] if s != TaskStep.DONE]
+    return [STEP_TO_AGENT[s] for s in downstream_steps if s in STEP_TO_AGENT]

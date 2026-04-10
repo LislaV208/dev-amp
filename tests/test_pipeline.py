@@ -6,8 +6,10 @@ from devamp.pipeline import (
     AGENT_EXPECTED_OUTPUT,
     STEP_EXPECTED_OUTPUT,
     STEP_TO_AGENT,
+    get_downstream_agents,
     get_next_step,
     get_pipeline,
+    is_before_step,
     resolve_step,
 )
 from devamp.scanner import ProjectType, TaskStep
@@ -124,3 +126,59 @@ def test_agent_expected_output_covers_all_agents() -> None:
         assert agent_name in AGENT_EXPECTED_OUTPUT, (
             f"Missing AGENT_EXPECTED_OUTPUT for {agent_name}"
         )
+
+
+# --- is_before_step ---
+
+
+def test_is_before_step_product_before_dev() -> None:
+    assert is_before_step("product", TaskStep.DEV, ProjectType.SINGLE) is True
+
+
+def test_is_before_step_product_before_qa() -> None:
+    assert is_before_step("product", TaskStep.QA, ProjectType.SINGLE) is True
+
+
+def test_is_before_step_dev_not_before_product() -> None:
+    assert is_before_step("dev", TaskStep.PRODUCT, ProjectType.SINGLE) is False
+
+
+def test_is_before_step_same_step() -> None:
+    assert is_before_step("dev", TaskStep.DEV, ProjectType.SINGLE) is False
+
+
+def test_is_before_step_multi_architect_before_dev() -> None:
+    assert is_before_step("architect", TaskStep.DEV, ProjectType.MULTI) is True
+
+
+def test_is_before_step_skipped_agent_single() -> None:
+    """Architect is not in single-repo pipeline, so not 'before' anything."""
+    assert is_before_step("architect", TaskStep.DEV, ProjectType.SINGLE) is False
+
+
+# --- get_downstream_agents ---
+
+
+def test_get_downstream_agents_product_single() -> None:
+    assert get_downstream_agents("product", ProjectType.SINGLE) == ["dev", "qa"]
+
+
+def test_get_downstream_agents_dev_single() -> None:
+    assert get_downstream_agents("dev", ProjectType.SINGLE) == ["qa"]
+
+
+def test_get_downstream_agents_qa_single() -> None:
+    assert get_downstream_agents("qa", ProjectType.SINGLE) == []
+
+
+def test_get_downstream_agents_product_multi() -> None:
+    assert get_downstream_agents("product", ProjectType.MULTI) == [
+        "architect",
+        "planner",
+        "dev",
+        "qa",
+    ]
+
+
+def test_get_downstream_agents_architect_multi() -> None:
+    assert get_downstream_agents("architect", ProjectType.MULTI) == ["planner", "dev", "qa"]

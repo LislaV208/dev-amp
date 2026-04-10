@@ -81,6 +81,16 @@ Zmiana → linter → następna zmiana
 
 Kompilacja/test przy grubszych zmianach lub na koniec logicznej jednostki. **Nie rób 15 zmian naraz** — iteruj małymi krokami.
 
+### Flow check po implementacji
+
+Po skończeniu logicznej jednostki pracy — zanim zgłosisz "done" — **przetestuj mentalnie główne ścieżki flow:**
+
+1. Weź główny scenariusz użycia zmiany którą napisałeś
+2. Przetracuj go krok po kroku przez kod: jaka funkcja woła jaką, jakie dane przepływają, jakie stany się zmieniają
+3. Zwróć uwagę na: czy dane/kontekst z punktu A docierają poprawnie do punktu B? Czy nie używasz starego stanu tam gdzie powinien być świeży?
+
+To nie zastępuje testów — to łapie bugi logiczne których unit testy nie pokrywają (np. zły kontekst przekazany do dalszego kroku, stale state po re-entry, złe założenie o stanie obiektu).
+
 ### Checkpoint między krokami
 
 Po zakończeniu każdego kroku z planu **ZATRZYMAJ SIĘ**:

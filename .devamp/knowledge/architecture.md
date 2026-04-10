@@ -57,3 +57,63 @@ File: `.devamp/tasks/{task}/task-metadata.json`
   "last_routing_reason": "3 bugs found"
 }
 ```
+
+## Discovery agent — 3 modes (v0.4.0)
+
+Discovery is no longer a one-shot setup agent. Three modes, auto-detected from context:
+
+| Mode | Condition | Output |
+|------|-----------|--------|
+| Setup | No `domain/` | Creates `context.md` + `roadmap.md` |
+| Domain capture | `domain/` exists but sparse | Updates `context.md` |
+| Strategy | `domain/` filled, user returns | Updates `roadmap.md` |
+
+- Agent determines mode from `domain/` state + user's opening message
+- Discovery is NOT per-task — it's per-project (domain is shared)
+- Dashboard option `[D] Domain / Strategy` available for non-empty projects
+- CLI shortcut: `devamp domain` (typer `@app.command()`)
+- Auto-trigger for empty projects (no domain/ + EMPTY) unchanged
+
+## Domain convention
+
+```
+.devamp/domain/
+├── context.md    # WHO/WHAT — company, product, users, constraints
+└── roadmap.md    # WHERE — priorities, MVP, later, out of scope
+```
+
+- `domain/` = business knowledge (filled by discovery, read by product + others)
+- `knowledge/` = technical knowledge (filled by dev/architect, read by dev/architect/planner)
+- Code checks `has_domain` by dir existence + any `.md` files — no filename assumptions
+
+## Product agent — domain-first approach (v0.4.0)
+
+Product agent no longer reverse-engineers domain from code. Priority:
+1. Read `domain/` for business context
+2. Code only for current UI state (screens, forms, navigation)
+3. Ask developer for screenshots when visual context needed
+
+## Re-entry & cascade (v0.4.0)
+
+Re-entry = user picks an agent earlier in the pipeline than the current step.
+
+**Detection:** `is_before_step(agent_name, current_step, project_type)` in `pipeline.py`. Uses `AGENT_TO_STEP` reverse mapping and pipeline order.
+
+**Flow:**
+1. User picks agent via `[A] Choose different agent` in post-agent menu
+2. `_pick_agent()` detects re-entry → warns about stale downstream artifacts → asks confirmation
+3. `pending_cascade_from` flag set in `_run_agent_for_task` loop
+4. Upstream agent runs (next loop iteration, via routing)
+5. After upstream finishes, `_run_cascade()` triggers — offers each downstream agent in order
+6. Each downstream agent gets cascade context: "Upstream artifact changed. Review and update."
+7. Cascade is semi-automatic: asks "Continue cascade to X?" before each agent
+8. User says No → back to dashboard, normal flow takes over
+
+**No persistent state:** Cascade is ephemeral flow in `cli.py`, not tracked in metadata. `cascade_pending` is a local variable, not persisted. If user quits mid-cascade, the task just sits at whatever step routing points to.
+
+**Key functions:**
+- `pipeline.is_before_step()` — is agent earlier in pipeline?
+- `pipeline.get_downstream_agents()` — list agents after given agent
+- `context.build_cascade_message()` — "upstream changed" initial message
+- `cli._run_cascade()` — semi-automatic cascade loop
+- `cli._pick_agent()` — re-entry detection + warning

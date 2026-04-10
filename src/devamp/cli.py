@@ -7,7 +7,7 @@ from pathlib import Path
 import typer
 
 from . import __version__
-from .context import build_initial_message
+from .context import build_cascade_message, build_initial_message
 from .launcher import launch_agent
 from .metadata import (
     clear_routing,
@@ -19,9 +19,12 @@ from .metadata import (
 )
 from .pipeline import (
     AGENT_EXPECTED_OUTPUT,
+    AGENT_TO_STEP,
     ALL_AGENTS,
     STEP_TO_AGENT,
+    get_downstream_agents,
     get_next_step,
+    is_before_step,
     resolve_step,
 )
 from .routing import ROUTING_DONE, ROUTING_PIPELINE, parse_routing
@@ -90,18 +93,45 @@ def _print_dashboard(state: ProjectState) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _pick_agent() -> str | None:
-    """Show full agent list and let user choose. Returns agent name or None."""
+def _pick_agent(
+    current_step: TaskStep | None = None,
+    project_type: ProjectType | None = None,
+) -> tuple[str | None, bool]:
+    """Show full agent list and let user choose.
+
+    Returns (agent_name, is_re_entry). If the picked agent is earlier in the
+    pipeline than the current step, warns about stale downstream artifacts
+    and asks for confirmation.
+    """
     typer.echo("Choose agent:")
     for i, name in enumerate(ALL_AGENTS, 1):
         typer.echo(f"  {i}. {name}")
     typer.echo()
 
     choice = typer.prompt("Agent number", type=int)
-    if 1 <= choice <= len(ALL_AGENTS):
-        return ALL_AGENTS[choice - 1]
-    typer.echo("Invalid choice.")
-    return None
+    if not (1 <= choice <= len(ALL_AGENTS)):
+        typer.echo("Invalid choice.")
+        return None, False
+
+    picked = ALL_AGENTS[choice - 1]
+
+    # Detect re-entry
+    if current_step and project_type and is_before_step(picked, current_step, project_type):
+        downstream = get_downstream_agents(picked, project_type)
+        downstream_files = [
+            AGENT_EXPECTED_OUTPUT[a] for a in downstream if a in AGENT_EXPECTED_OUTPUT
+        ]
+        files_str = ", ".join(downstream_files)
+        typer.echo()
+        typer.echo(
+            f"⚠️  Downstream artifacts ({files_str}) will become stale. "
+            f"Pipeline will re-run from this point."
+        )
+        if not typer.confirm("Continue?", default=True):
+            return None, False
+        return picked, True
+
+    return picked, False
 
 
 # ---------------------------------------------------------------------------
@@ -234,6 +264,10 @@ def _run_agent_for_task(
 
     Returns: "dashboard" or "quit" or "new_task".
     """
+    # Track pending cascade: after a re-entry pick, the upstream agent runs
+    # first (next loop iteration), then cascade triggers for downstream agents.
+    pending_cascade_from: str | None = None
+
     while True:
         # Re-scan to get fresh state
         state = scan_project(cwd)
@@ -317,6 +351,12 @@ def _run_agent_for_task(
                 routing_next = routing.next
                 routing_reason = routing.reason
 
+        # Handle cascade after re-entry: upstream agent finished → cascade downstream
+        if pending_cascade_from:
+            cascade_from = pending_cascade_from
+            pending_cascade_from = None
+            return _run_cascade(task, state, cwd, cascade_from)
+
         # Post-agent menu
         action = _post_agent_menu(
             task, state, agent_name, routing_next, routing_reason, expected_file
@@ -325,12 +365,89 @@ def _run_agent_for_task(
         if action == "continue":
             continue
         if action == "pick":
-            picked = _pick_agent()
+            picked, is_re_entry = _pick_agent(step, state.project_type)
             if picked:
                 record_routing(task.path, picked, "Manual agent selection")
+                if is_re_entry:
+                    pending_cascade_from = picked
             continue
         # "dashboard", "quit", "new_task"
         return action
+
+
+def _run_cascade(
+    task: TaskState,
+    state: ProjectState,
+    cwd: Path,
+    upstream_agent: str,
+) -> str:
+    """Run cascade through downstream agents after re-entry.
+
+    After an upstream agent finishes (re-entry), offers to run each downstream
+    agent in pipeline order so they can update their outputs.
+
+    Returns: "dashboard" or "quit".
+    """
+    downstream = get_downstream_agents(upstream_agent, state.project_type)
+
+    for agent_name in downstream:
+        expected_file = AGENT_EXPECTED_OUTPUT.get(agent_name)
+
+        # Only cascade to agents that have existing output to update
+        if not expected_file or not (task.path / expected_file).exists():
+            continue
+
+        if not typer.confirm(
+            f"Upstream artifact changed. Continue cascade to {agent_name}?",
+            default=True,
+        ):
+            return "dashboard"
+
+        typer.echo(f"🔄 Cascading to {agent_name} for '{task.name}'...")
+        typer.echo()
+
+        # Build cascade-specific message with the cascade agent's own step
+        # (not upstream step) so _base_message gives the right input reference
+        cascade_step = AGENT_TO_STEP.get(agent_name, TaskStep.DEV)
+        cascade_message = build_cascade_message(
+            TaskState(
+                name=task.name,
+                step=cascade_step,
+                path=task.path,
+            ),
+            state,
+            upstream_agent,
+        )
+
+        # Resume existing session if available
+        existing_session = get_session_id(task.path, agent_name)
+
+        add_dirs = None
+        if state.project_type == ProjectType.MULTI and state.repos:
+            add_dirs = [str(cwd / repo) for repo in state.repos]
+
+        exit_code, session_id = launch_agent(
+            agent_name,
+            cascade_message,
+            add_dirs,
+            session_id=existing_session,
+        )
+
+        record_session(task.path, agent_name, session_id)
+
+        if exit_code != 0:
+            typer.echo(f"Agent exited with code {exit_code}.")
+
+        # Parse routing from cascade output
+        if expected_file and (task.path / expected_file).exists():
+            routing = parse_routing(task.path / expected_file)
+            if routing:
+                record_routing(task.path, routing.next, routing.reason)
+
+        # This agent becomes upstream for the next cascade step
+        upstream_agent = agent_name
+
+    return "dashboard"
 
 
 def _check_new_tasks(cwd: Path, state: ProjectState) -> str | None:
