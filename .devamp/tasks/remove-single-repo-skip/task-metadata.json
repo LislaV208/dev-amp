@@ -1,0 +1,9 @@
+{
+  "created_at": "2026-04-10T18:36:18.628866+00:00",
+  "sessions": {
+    "product": "0f8ec08a-6362-4f3b-84c7-96e8168bf0bb",
+    "dev": "110c3ba9-149d-4d87-ac36-0b8604fe7abb"
+  },
+  "last_routing_next": null,
+  "last_routing_reason": null
+}
