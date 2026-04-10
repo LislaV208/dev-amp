@@ -10,6 +10,7 @@ from devamp.scanner import (
     TaskStep,
     detect_project_type,
     detect_task_step,
+    parse_roadmap,
     scan_project,
     scan_tasks,
 )
@@ -211,3 +212,189 @@ def test_scan_project_with_domain(tmp_path: Path) -> None:
 
     state = scan_project(tmp_path)
     assert state.has_domain is True
+
+
+# --- parse_roadmap ---
+
+
+def _write_roadmap(tmp_path: Path, content: str) -> None:
+    """Helper: write content to .devamp/domain/roadmap.md."""
+    roadmap = tmp_path / ".devamp" / "domain" / "roadmap.md"
+    roadmap.parent.mkdir(parents=True, exist_ok=True)
+    roadmap.write_text(content, encoding="utf-8")
+
+
+def test_parse_roadmap_happy_path(tmp_path: Path) -> None:
+    """Three epics with different statuses are all parsed correctly."""
+    _write_roadmap(
+        tmp_path,
+        """\
+# devamp — Roadmap
+
+## Alpha feature
+Status: planned
+
+Some description here.
+
+## Beta feature
+Status: in-progress
+
+Another description.
+
+## Gamma feature
+Status: done
+
+Completed work.
+""",
+    )
+    epics = parse_roadmap(tmp_path)
+    assert len(epics) == 3
+
+    assert epics[0].name == "Alpha feature"
+    assert epics[0].status == "planned"
+    assert "Some description here." in epics[0].content
+    assert epics[0].content.startswith("## Alpha feature")
+
+    assert epics[1].name == "Beta feature"
+    assert epics[1].status == "in-progress"
+
+    assert epics[2].name == "Gamma feature"
+    assert epics[2].status == "done"
+
+
+def test_parse_roadmap_missing_file(tmp_path: Path) -> None:
+    """No roadmap.md → empty list, no exception."""
+    assert parse_roadmap(tmp_path) == []
+
+
+def test_parse_roadmap_empty_file(tmp_path: Path) -> None:
+    """Empty roadmap.md → empty list."""
+    _write_roadmap(tmp_path, "")
+    assert parse_roadmap(tmp_path) == []
+
+
+def test_parse_roadmap_h2_without_status(tmp_path: Path) -> None:
+    """H2 section without Status: line is skipped."""
+    _write_roadmap(
+        tmp_path,
+        """\
+## Has status
+Status: planned
+
+Description.
+
+## No status
+
+Just text, no status line.
+
+## Also has status
+Status: done
+
+Done stuff.
+""",
+    )
+    epics = parse_roadmap(tmp_path)
+    assert len(epics) == 2
+    assert epics[0].name == "Has status"
+    assert epics[1].name == "Also has status"
+
+
+def test_parse_roadmap_all_done(tmp_path: Path) -> None:
+    """All epics with status done — parser returns them all (filtering is cli's job)."""
+    _write_roadmap(
+        tmp_path,
+        """\
+## Feature A
+Status: done
+
+Done.
+
+## Feature B
+Status: done
+
+Also done.
+""",
+    )
+    epics = parse_roadmap(tmp_path)
+    assert len(epics) == 2
+    assert all(e.status == "done" for e in epics)
+
+
+def test_parse_roadmap_rich_content(tmp_path: Path) -> None:
+    """Epic with bullet points, code blocks — content preserved fully."""
+    _write_roadmap(
+        tmp_path,
+        """\
+## Complex epic
+Status: planned
+
+Key points:
+- bullet one
+- bullet two
+
+```python
+def hello():
+    pass
+```
+
+More text after code block.
+""",
+    )
+    epics = parse_roadmap(tmp_path)
+    assert len(epics) == 1
+    assert "- bullet one" in epics[0].content
+    assert "```python" in epics[0].content
+    assert "More text after code block." in epics[0].content
+
+
+def test_parse_roadmap_status_with_blank_line_after_h2(tmp_path: Path) -> None:
+    """Status: can be separated from H2 by a blank line (within 3 non-blank lines)."""
+    _write_roadmap(
+        tmp_path,
+        """\
+## Spaced epic
+
+Status: in-progress
+
+Description.
+""",
+    )
+    epics = parse_roadmap(tmp_path)
+    assert len(epics) == 1
+    assert epics[0].status == "in-progress"
+
+
+def test_parse_roadmap_status_case_insensitive(tmp_path: Path) -> None:
+    """Status line matching is case-insensitive."""
+    _write_roadmap(
+        tmp_path,
+        """\
+## Case test
+status: Planned
+
+Desc.
+""",
+    )
+    epics = parse_roadmap(tmp_path)
+    assert len(epics) == 1
+    assert epics[0].status == "planned"
+
+
+def test_parse_roadmap_preamble_ignored(tmp_path: Path) -> None:
+    """Text before first H2 (preamble like H1 title) is ignored."""
+    _write_roadmap(
+        tmp_path,
+        """\
+# My Project Roadmap
+
+Some intro text.
+
+## First epic
+Status: planned
+
+Description.
+""",
+    )
+    epics = parse_roadmap(tmp_path)
+    assert len(epics) == 1
+    assert epics[0].name == "First epic"

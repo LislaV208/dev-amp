@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.6.1
+
+### Fixes
+- [P2] Epic picker UI now matches spec: section headers (`In progress:` / `Planned:`), separator before ad-hoc option, `(blank)` text. Empty sections are hidden.
+
+### Tests
+- 88 tests total (up from 83): 5 new tests for `_update_epic_status` (happy path, no impact on other epics, missing file, missing heading, idempotency)
+
+## 0.6.0
+
+### Features
+- **Roadmap epic picker:** "Start new task" now checks `roadmap.md` for `planned`/`in-progress` epics and shows them as options before the agent picker. Selecting an epic marks it as `in-progress` and launches `product` with the epic's full content as context.
+- **Ad-hoc fallback:** If no actionable epics exist, or user picks `[A] Ad hoc`, the original agent-picker flow runs unchanged.
+
+### New functions
+- `scanner.parse_roadmap()` — parse `roadmap.md` into `RoadmapEpic` dataclass list
+- `scanner.RoadmapEpic` — dataclass: name, status, content
+- `cli._pick_epic()` — epic picker UI (in-progress first with 🔄, then planned, ad-hoc at bottom)
+- `cli._update_epic_status()` — precise single-line Status replacement in roadmap.md
+- `cli._start_epic_task()` — launch product with epic context
+- `cli._start_adhoc_task()` — extracted original agent-picker flow
+
+### Tests
+- 83 tests total (up from 74): 9 new tests for `parse_roadmap` (happy path, missing file, empty file, no status, all done, rich content, blank line tolerance, case insensitive, preamble)
+
 ## 0.5.0
 
 ### Breaking changes

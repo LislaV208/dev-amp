@@ -2,8 +2,9 @@
   "created_at": "2026-04-10T18:36:18.628866+00:00",
   "sessions": {
     "product": "0f8ec08a-6362-4f3b-84c7-96e8168bf0bb",
-    "dev": "110c3ba9-149d-4d87-ac36-0b8604fe7abb"
+    "dev": "110c3ba9-149d-4d87-ac36-0b8604fe7abb",
+    "qa": "585fb147-93cc-4fca-9c70-fc81ed89ab06"
   },
-  "last_routing_next": null,
-  "last_routing_reason": null
+  "last_routing_next": "done",
+  "last_routing_reason": "Implementacja zgodna ze spec. Jedyny finding (stale domain/devamp.md) naprawiony w locie."
 }

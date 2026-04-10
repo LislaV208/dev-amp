@@ -127,3 +127,26 @@ Product/discovery agent can create N task directories in one session.
 - Chosen task continues immediately, remaining tasks appear on dashboard
 - For 1 task: prints name, no picker — direct flow like before
 - For 0 tasks: returns empty list, no interaction
+
+## Roadmap epic picker (v0.6.1)
+
+"Start new task" checks `roadmap.md` before showing the agent picker.
+
+**Flow in `_start_new_task()`:**
+1. `parse_roadmap(cwd)` → list of `RoadmapEpic` (name, status, content)
+2. Filter: `in-progress` + `planned`
+3. If actionable epics exist → `_pick_epic()` shows grouped picker:
+   - `In progress:` header + epics with 🔄 (hidden if section empty)
+   - `Planned:` header + epics (hidden if section empty)
+   - Separator `──────────────────────`
+   - `[A] Ad hoc (blank)`
+4. If no actionable epics → straight to `_start_adhoc_task()` (original flow)
+5. Epic selected → `_start_epic_task()`: marks as `in-progress`, launches `product` with `"Domain: ...\n\nRoadmap epic:\n{content}"`
+6. `[A]` Ad hoc → `_start_adhoc_task()` (original agent-picker flow, extracted)
+
+**Key design decisions:**
+- `parse_roadmap()` lives in `scanner.py` (read-only, consistent with module's role)
+- `_update_epic_status()` lives in `cli.py` (write operation, scanner stays read-only)
+- Status replacement uses precise single-line find&replace via regex (preserves formatting)
+- `_start_new_task()` was split into `_start_epic_task()` + `_start_adhoc_task()` for clarity
+- `tests/test_cli.py` covers `_update_epic_status` (5 tests: happy path, isolation, missing file/heading, idempotency)
