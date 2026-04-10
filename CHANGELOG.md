@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+
+### Fixes
+- [P2] `devamp domain` subcommand no longer blocked by dashboard loop — added `ctx.invoked_subcommand` guard in `main()`
+- [P3] Session ID now recorded on new tasks created via `_run_agent_for_task` path (was only recorded in `_start_new_task`)
+- [P3] Discovery message changed from "Empty project" to "No domain files" for non-empty projects without `domain/`
+- [P3] `has_domain` check uses `glob("*.md")` instead of `iterdir()` — ignores non-markdown files like `.DS_Store`
+
 ## 0.4.0
 
 ### Features

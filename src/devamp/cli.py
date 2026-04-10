@@ -326,6 +326,8 @@ def _run_agent_for_task(
         if step == TaskStep.PRODUCT:
             new_tasks = _check_new_tasks(cwd, state)
             if new_tasks:
+                for t in new_tasks:
+                    record_session(t.path, agent_name, session_id)
                 chosen_name = _pick_new_task(new_tasks)
                 if chosen_name:
                     state = scan_project(cwd)
@@ -555,7 +557,7 @@ def _run_discovery(cwd: Path, state: ProjectState) -> None:
         if state.has_domain:
             typer.echo("🔍 Starting discovery agent (domain / strategy)...")
         else:
-            typer.echo("🔍 Empty project — starting discovery agent...")
+            typer.echo("🔍 No domain files — starting discovery agent...")
         typer.echo()
 
         # Pass domain context if it exists so the agent can detect mode
@@ -605,6 +607,7 @@ def domain() -> None:
 
 @app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(
         False,
         "--version",
@@ -616,6 +619,10 @@ def main(
     resume: bool = typer.Option(False, "--resume", help="Resume most recent active task"),
 ) -> None:
     """devamp — AI agent pipeline orchestrator."""
+    # When a subcommand is invoked (e.g. `devamp domain`), don't run the dashboard
+    if ctx.invoked_subcommand is not None:
+        return
+
     cwd = Path.cwd()
 
     if resume:

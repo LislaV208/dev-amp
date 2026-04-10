@@ -136,7 +136,7 @@ def scan_project(cwd: Path | None = None) -> ProjectState:
         cwd = Path.cwd()
 
     project_type, repos = detect_project_type(cwd)
-    has_domain = (cwd / DOMAIN_DIR).is_dir() and any((cwd / DOMAIN_DIR).iterdir())
+    has_domain = (cwd / DOMAIN_DIR).is_dir() and any((cwd / DOMAIN_DIR).glob("*.md"))
     tasks = scan_tasks(cwd)
 
     return ProjectState(

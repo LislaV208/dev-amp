@@ -84,7 +84,7 @@ Discovery is no longer a one-shot setup agent. Three modes, auto-detected from c
 
 - `domain/` = business knowledge (filled by discovery, read by product + others)
 - `knowledge/` = technical knowledge (filled by dev/architect, read by dev/architect/planner)
-- Code checks `has_domain` by dir existence + any `.md` files — no filename assumptions
+- Code checks `has_domain` by dir existence + `glob("*.md")` — ignores non-markdown files (e.g. `.DS_Store`)
 
 ## Product agent — domain-first approach (v0.4.0)
 
