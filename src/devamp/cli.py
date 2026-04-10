@@ -426,6 +426,11 @@ def _run_cascade(
             upstream_agent,
         )
 
+        # Clear stale routing before launching cascade agent (same safety
+        # net as _run_agent_for_task — prevents stale routing if agent
+        # crashes or doesn't produce ## Routing).
+        clear_routing(task.path)
+
         # Don't resume previous sessions during cascade — same reason as
         # _run_agent_for_task: --resume ignores positional initial_message.
         add_dirs = None
