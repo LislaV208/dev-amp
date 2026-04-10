@@ -164,8 +164,9 @@ Gdy wszystkie punkty zaimplementowane, linter przechodzi, developer potwierdził
 1. Zaktualizuj CHANGELOG.md (co zrobiono w tej sesji)
 2. Podbij wersję w pubspec.yaml / package.json / pyproject.toml (zależnie od stacku)
 3. Zaktualizuj `.devamp/knowledge/` jeśli zdobyłeś nową wiedzę o projekcie
-4. Utwórz `qa-input.md` w katalogu taska — krótkie podsumowanie co zrobiłeś i na co QA powinien zwrócić uwagę
-5. Na końcu `qa-input.md` umieść sekcję routingu:
+4. Sprawdź czy README.md wymaga aktualizacji (nowe komendy, zmieniona architektura, nowe koncepty)
+5. Utwórz `qa-input.md` w katalogu taska — krótkie podsumowanie co zrobiłeś i na co QA powinien zwrócić uwagę
+6. Na końcu `qa-input.md` umieść sekcję routingu:
 ```markdown
 ## Routing
 
