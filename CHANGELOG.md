@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.1
+
+### Fixes
+- [P2] Epic picker UI now matches spec: section headers (`In progress:` / `Planned:`), separator before ad-hoc option, `(blank)` text. Empty sections are hidden.
+
+### Tests
+- 88 tests total (up from 83): 5 new tests for `_update_epic_status` (happy path, no impact on other epics, missing file, missing heading, idempotency)
+
 ## 0.6.0
 
 ### Features

@@ -546,11 +546,20 @@ def _pick_epic(epics: list[RoadmapEpic]) -> RoadmapEpic | None:
     planned = [e for e in epics if e.status == "planned"]
     ordered = in_progress + planned
 
-    typer.echo("Roadmap epics:")
-    for i, epic in enumerate(ordered, 1):
-        marker = "🔄 " if epic.status == "in-progress" else ""
-        typer.echo(f"  {i}. {marker}{epic.name}")
-    typer.echo("  [A] Ad hoc (free-form task)")
+    idx = 1
+    if in_progress:
+        typer.echo("  In progress:")
+        for epic in in_progress:
+            typer.echo(f"    {idx}. 🔄 {epic.name}")
+            idx += 1
+        typer.echo()
+    if planned:
+        typer.echo("  Planned:")
+        for epic in planned:
+            typer.echo(f"    {idx}. {epic.name}")
+            idx += 1
+    typer.echo("  ──────────────────────")
+    typer.echo("  [A] Ad hoc (blank)")
     typer.echo()
 
     raw = typer.prompt("Choice", default="1").strip().upper()
