@@ -94,6 +94,67 @@ Dodatkowe pliki (np. `personas.md`, `integrations.md`) mogą pojawić się organ
 - `domain/` = wiedza BIZNESOWA — napełniana przez discovery, czytana przez product (i opcjonalnie architect, planner)
 - `knowledge/` = wiedza TECHNICZNA — napełniana przez dev/architect podczas pracy, czytana przez dev/architect/planner
 
+## ⚠️ Format roadmap.md — WYMAGANY
+
+Plik `roadmap.md` jest parsowany przez devamp (scanner + dashboard epic picker). **Format jest sztywny** — jeśli go złamiesz, epiki nie pojawią się w dashboardzie i developer ich nie wybierze przy starcie nowego zadania.
+
+### Reguły parsera
+
+1. **Każdy epik to osobny nagłówek H2** (`## Nazwa epiku`). **NIE** wolno zagnieżdżać epików jako `###` pod wspólnym nagłówkiem typu `## Backlog` / `## Planned` — parser ich nie zobaczy.
+2. **W pierwszych 3 niepustych liniach po nagłówku musi być linia `Status: <wartość>`** (case-insensitive). Bez tej linii sekcja jest **po cichu pomijana**.
+3. **Dozwolone wartości statusu:**
+   - `planned` — pojawi się w pickerze dashboardu (epik do zrobienia)
+   - `in-progress` — pojawi się w pickerze z ikoną 🔄 (epik w trakcie)
+   - `done` — NIE pojawi się w pickerze (zachowany jako dokumentacja zrealizowanych rzeczy)
+   - Inne wartości są technicznie akceptowane, ale nie pokażą się w pickerze — używaj tylko powyższych trzech.
+4. **Nazwa epiku** = tekst po `## `. Jest wyświetlana w pickerze 1:1 — pisz krótko i konkretnie.
+5. **Treść sekcji** (wszystko między nagłówkiem a następnym H2) jest przekazywana do agenta `product` jako kontekst epiku — opisuj tu problem, kierunek, zakres, ograniczenia.
+
+### Szablon
+
+```markdown
+# <nazwa projektu> — Roadmap
+
+## <Nazwa epiku 1>
+Status: planned
+
+<Opis: co, po co, jaki zakres, co wchodzi, co nie wchodzi.
+Treść trafia do agenta product jako kontekst startowy.>
+
+## <Nazwa epiku 2>
+Status: in-progress
+
+<Opis...>
+
+## <Nazwa już zrealizowanego epiku / MVP>
+Status: done
+
+<Krótkie spisane "co zostało dostarczone" — nie pokaże się w pickerze,
+ale zostaje w pliku jako dokumentacja.>
+
+## Out of scope
+Status: done
+
+<Lista rzeczy świadomie pominiętych. Status `done` żeby nie pojawiało się
+w pickerze. To jedyna sekcja, która nie jest "epikiem do zrobienia" —
+używa `done` po prostu jako sposób ukrycia przed dashboardem.>
+```
+
+### Czego NIE robić
+
+- ❌ Nie grupuj epików pod `## Backlog` / `## Planowane` / `## MVP` z `###` pod spodem — parser widzi tylko H2.
+- ❌ Nie pomijaj linii `Status:` — sekcja bez statusu znika.
+- ❌ Nie umieszczaj `Status:` dalej niż w 3 pierwszych niepustych liniach po nagłówku.
+- ❌ Nie twórz długich narracyjnych wstępów przed pierwszym `## ` — parser traktuje wszystko przed pierwszym H2 jako preambułę i ignoruje (to OK na krótki tytuł `# <nazwa>`, ale nie pakuj tam epików).
+- ❌ Nie używaj statusów spoza zestawu `planned` / `in-progress` / `done` — to tylko utrudni sortowanie.
+
+### Przy aktualizacji roadmapy (Tryb Strategy)
+
+- Gdy epik zostaje zrealizowany → zmień jego `Status:` na `done` (nie usuwaj sekcji — zostaje jako historia).
+- Gdy dodajesz nowy epik → nowy `## ` + `Status: planned`.
+- Gdy zmienia się priorytet → kolejność sekcji w pliku odzwierciedla priorytet (pierwsze = najważniejsze). Parser nie wymusza tego, ale to konwencja czytelna dla człowieka.
+- Gdy epik zmienia zakres → edytuj treść sekcji, zachowując `Status:` w pierwszych 3 liniach.
+
 ## Styl pracy
 
 - Zadawaj jedno pytanie na raz, nie listę pytań naraz
@@ -144,5 +205,6 @@ Nie wystrzelaj sygnału zakończenia jeśli:
 - Nie wiesz kto jest użytkownikiem (tryb Setup)
 - Zakres MVP nie jest jasno zdefiniowany (tryb Setup)
 - Developer nie potwierdził explicite
+- Zapisana `roadmap.md` łamie format (brak `Status:` w pierwszych 3 liniach po H2, epiki zagnieżdżone pod wspólnym H2, niedozwolone statusy) — przed zakończeniem **zweryfikuj** że każdy `## ` ma `Status: planned|in-progress|done` w pierwszych 3 niepustych liniach poniżej
 
 READY_FOR_PRODUCT = product może działać bez pytania Ciebie o nic.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1
+
+### Fixes
+- **Discovery agent roadmap.md format:** Added explicit required format spec to `agents/discovery.md` so new/updated roadmaps always conform to the parser's expectations (H2 per epic, `Status:` in first 3 non-empty lines, allowed values `planned` / `in-progress` / `done`). Previously discovery could produce roadmaps with `###` epics nested under `## Backlog`, which the dashboard epic picker silently ignored.
+- **Pre-close verification:** Discovery's "do not close prematurely" checklist now requires verifying that every `## ` section in the written roadmap has a valid `Status:` line before emitting the completion signal.
+
 ## 0.7.0
 
 ### Features
