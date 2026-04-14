@@ -294,6 +294,7 @@ def _run_agent_for_task(
         initial_message = build_initial_message(
             TaskState(name=task.name, step=step, path=task.path),
             state,
+            cwd,
         )
 
         # Clear stale routing AFTER building message so next loop iteration
@@ -424,6 +425,7 @@ def _run_cascade(
             ),
             state,
             upstream_agent,
+            cwd,
         )
 
         # Clear stale routing before launching cascade agent (same safety
@@ -622,7 +624,9 @@ def _start_epic_task(cwd: Path, state: ProjectState, epic: RoadmapEpic) -> str:
     tasks_dir.mkdir(parents=True, exist_ok=True)
 
     # Build initial message with epic context
-    initial_message = f"Domain: {DOMAIN_DIR}/\n\nRoadmap epic:\n{epic.content}"
+    initial_message = (
+        f"Project root: {cwd}\nDomain: {cwd / DOMAIN_DIR}/\n\nRoadmap epic:\n{epic.content}"
+    )
     exit_code, session_id = launch_agent("product", initial_message)
 
     new_tasks = _check_new_tasks(cwd, state)
@@ -665,7 +669,11 @@ def _start_adhoc_task(cwd: Path, state: ProjectState) -> str:
     tasks_dir = cwd / TASKS_DIR
     tasks_dir.mkdir(parents=True, exist_ok=True)
 
-    initial_message = f"Domain: {DOMAIN_DIR}/" if state.has_domain else None
+    initial_message = (
+        f"Project root: {cwd}\nDomain: {cwd / DOMAIN_DIR}/"
+        if state.has_domain
+        else f"Project root: {cwd}"
+    )
     exit_code, session_id = launch_agent(agent_name, initial_message)
 
     new_tasks = _check_new_tasks(cwd, state)
@@ -710,7 +718,11 @@ def _run_discovery(cwd: Path, state: ProjectState) -> None:
         typer.echo()
 
         # Pass domain context if it exists so the agent can detect mode
-        initial_message = f"Domain: {DOMAIN_DIR}/" if state.has_domain else None
+        initial_message = (
+            f"Project root: {cwd}\nDomain: {cwd / DOMAIN_DIR}/"
+            if state.has_domain
+            else f"Project root: {cwd}"
+        )
 
         exit_code, _session_id = launch_agent("discovery", initial_message)
 

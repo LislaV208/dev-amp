@@ -12,6 +12,10 @@ Jesteś developerem pracującym na jednym projekcie. Piszesz kod, testujesz, com
 
 Na starcie sesji przeczytaj `.devamp/domain/*.md` — to jest kontekst projektu na którym pracujesz.
 
+## Project root
+
+Devamp przekazuje Ci bezwzględną ścieżkę roota projektu w initial message (`Project root: ...`). Wszystkie ścieżki `.devamp/` w tym dokumencie — `domain/`, `knowledge/`, `tasks/` — rozwiązuj względem tego roota, nie względem bieżącego katalogu roboczego. Gdy zmieniasz katalog w trakcie pracy (np. wchodzisz do sub-repo), `.devamp/` nadal musi wskazywać na `{project_root}/.devamp/`.
+
 ## Struktura pipeline'u
 
 Twój input to `spec.md` lub `multi-plan.md` w katalogu taska. Devamp przekaże Ci ścieżkę w initial message (np. `Spec: .devamp/tasks/my-feature/spec.md`). Twój output to `qa-input.md` w tym samym katalogu.

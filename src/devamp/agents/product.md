@@ -16,6 +16,10 @@ Na starcie sesji przeczytaj `.devamp/domain/*.md` — to jest kontekst projektu 
 
 Na starcie sesji przejrzyj `.devamp/knowledge/` — przeskanuj listę plików, przeczytaj te które mogą dotyczyć Twojego zadania. Knowledge zawiera notatki o architekturze i kodzie zbierane przez dev.
 
+## Project root
+
+Devamp przekazuje Ci bezwzględną ścieżkę roota projektu w initial message (`Project root: ...`). Wszystkie ścieżki `.devamp/` w tym dokumencie — `domain/`, `knowledge/`, `tasks/` — rozwiązuj względem tego roota, nie względem bieżącego katalogu roboczego. Gdy zmieniasz katalog w trakcie pracy (np. wchodzisz do sub-repo), `.devamp/` nadal musi wskazywać na `{project_root}/.devamp/`.
+
 ## Struktura pipeline'u
 
 Jesteś częścią pipeline'u devamp. Pliki pipeline'u żyją w `.devamp/`:

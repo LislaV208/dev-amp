@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from .metadata import load_metadata
 from .pipeline import AGENT_EXPECTED_OUTPUT
 from .scanner import DOMAIN_DIR, ProjectState, TaskState, TaskStep
@@ -10,31 +12,40 @@ from .scanner import DOMAIN_DIR, ProjectState, TaskState, TaskStep
 def build_initial_message(
     task: TaskState,
     project_state: ProjectState,
-) -> str | None:
+    cwd: Path,
+) -> str:
     """Build initial message for the agent about to be launched.
 
     Includes delegation context when the task was routed by another agent
     (not the default pipeline flow).
+
+    Always returns a non-empty string (at minimum ``Project root: ...``).
     """
-    base = _base_message(task, project_state)
+    root_line = f"Project root: {cwd}"
+    base = _base_message(task, project_state, cwd)
     delegation = _delegation_context(task)
 
-    if delegation and base:
-        return f"{delegation}\n\n{base}"
+    parts: list[str] = [root_line]
     if delegation:
-        return delegation
-    return base
+        parts.append(delegation)
+    if base:
+        parts.append(base)
+
+    return "\n\n".join(parts)
 
 
 def build_cascade_message(
     task: TaskState,
     project_state: ProjectState,
     upstream_agent: str,
-) -> str | None:
+    cwd: Path,
+) -> str:
     """Build initial message for a downstream agent during cascade.
 
     Tells the agent that upstream artifact changed and it should update its output.
     """
+    root_line = f"Project root: {cwd}"
+
     upstream_output = AGENT_EXPECTED_OUTPUT.get(upstream_agent)
     upstream_ref = f" ({task.path}/{upstream_output})" if upstream_output else ""
 
@@ -43,20 +54,22 @@ def build_cascade_message(
         f"Review the updated input and update your output accordingly."
     )
 
-    base = _base_message(task, project_state)
+    base = _base_message(task, project_state, cwd)
+    parts: list[str] = [root_line, cascade_ctx]
     if base:
-        return f"{cascade_ctx}\n\n{base}"
-    return cascade_ctx
+        parts.append(base)
+
+    return "\n\n".join(parts)
 
 
-def _base_message(task: TaskState, project_state: ProjectState) -> str | None:
+def _base_message(task: TaskState, project_state: ProjectState, cwd: Path) -> str | None:
     """Build the standard initial message for a step."""
     step = task.step
     task_dir = str(task.path)
 
     if step == TaskStep.PRODUCT:
         if project_state.has_domain:
-            return f"Domain: {DOMAIN_DIR}/"
+            return f"Domain: {cwd}/{DOMAIN_DIR}/"
         return None
 
     if step == TaskStep.ARCHITECT:

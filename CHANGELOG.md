@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.0
+
+### Features
+- **Project root in agent context:** All initial messages now start with `Project root: /absolute/path` as the first line. Agents can resolve `.devamp/` paths relative to the project root instead of CWD — critical for multi-repo setups where agents `cd` into sub-repos.
+- **Absolute domain paths:** `DOMAIN_DIR` in messages is now rendered as an absolute path (`/abs/path/.devamp/domain/`) instead of relative (`.devamp/domain/`).
+- **Agent instructions:** All 6 agent `.md` files include a `## Project root` section instructing the LLM to resolve `.devamp/` paths against the project root.
+
+### Breaking changes
+- `build_initial_message()` signature: added required `cwd: Path` parameter, return type changed from `str | None` to `str` (always returns at least `Project root: ...`)
+- `build_cascade_message()` signature: added required `cwd: Path` parameter, return type changed from `str | None` to `str`
+- `_base_message()` signature: added required `cwd: Path` parameter
+
+### Direct construction changes
+- `_start_epic_task()`, `_start_adhoc_task()`, `_run_discovery()` — all initial messages now include `Project root:` prefix with absolute paths
+- `_run_discovery()` in setup mode (no domain) now passes `"Project root: {cwd}"` instead of `None`
+
+### Tests
+- 111 tests total (up from 88): 23 new tests for `build_initial_message`, `build_cascade_message`, `_base_message` in `test_context.py` — covering all pipeline steps, delegation context, cascade messages, Project root as first line, never-None guarantee, absolute domain paths
+
 ## 0.6.1
 
 ### Fixes
