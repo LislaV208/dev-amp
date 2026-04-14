@@ -1,0 +1,10 @@
+{
+  "created_at": "2026-04-10T03:32:16.537368+00:00",
+  "sessions": {
+    "product": "57061309-a399-4028-9612-36dc920be8da",
+    "dev": "6a6b0544-d86e-4151-85de-b05911d07655",
+    "qa": "e847cc11-9c0f-42e0-9031-de2a8f719c42"
+  },
+  "last_routing_next": "done",
+  "last_routing_reason": "Wszystkie 4 zgłoszone problemy naprawione i zweryfikowane. Brak nowych issues. Task kompletny."
+}

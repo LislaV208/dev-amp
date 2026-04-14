@@ -1,0 +1,8 @@
+{
+  "created_at": "2026-04-14T16:29:50.475618+00:00",
+  "sessions": {
+    "qa": "e8ae96f1-6c5c-41d8-a422-731b363c15a9"
+  },
+  "last_routing_next": "done",
+  "last_routing_reason": "Dwa P2 zgłoszone przez poprzednie QA są poprawione i zweryfikowane (UI pickera + testy `_update_epic_status`). Pełny suite 118/118, ruff czysty, regresji brak. Brak P1/P2 do naprawy. Jedyna uwaga to kosmetyczny P3 nie warty iteracji."
+}
