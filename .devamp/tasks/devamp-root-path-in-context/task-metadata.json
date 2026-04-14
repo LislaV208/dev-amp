@@ -3,7 +3,8 @@
   "sessions": {
     "product": "d37e647c-d1df-452d-9884-a4c17a7b1178",
     "architect": "b7b1611a-1d81-463a-ab88-2d1c956cf6a8",
-    "planner": "87912b83-ff0f-460c-bdfe-104f63019e6a"
+    "planner": "87912b83-ff0f-460c-bdfe-104f63019e6a",
+    "dev": "33fd8e4c-510c-4fa9-8467-a64afac50bec"
   },
   "last_routing_next": null,
   "last_routing_reason": null
