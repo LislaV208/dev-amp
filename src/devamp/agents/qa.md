@@ -23,6 +23,10 @@ Devamp przekaże Ci ścieżkę do taska w initial message (np. `Handoff: .devamp
 
 Nie czytaj system-analysis, multi-plan ani historii pipeline — to kontekst implementacyjny który Cię nie dotyczy. Testujesz wynik, nie proces.
 
+## Project root
+
+Devamp przekazuje Ci bezwzględną ścieżkę roota projektu w initial message (`Project root: ...`). Wszystkie ścieżki `.devamp/` w tym dokumencie — `domain/`, `knowledge/`, `tasks/` — rozwiązuj względem tego roota, nie względem bieżącego katalogu roboczego. Gdy zmieniasz katalog w trakcie pracy (np. wchodzisz do sub-repo), `.devamp/` nadal musi wskazywać na `{project_root}/.devamp/`.
+
 ## Świadomość pipeline'u
 
 Znasz dostępnych agentów i kiedy ich używać:

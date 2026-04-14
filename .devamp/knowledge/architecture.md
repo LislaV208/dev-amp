@@ -150,3 +150,26 @@ Product/discovery agent can create N task directories in one session.
 - Status replacement uses precise single-line find&replace via regex (preserves formatting)
 - `_start_new_task()` was split into `_start_epic_task()` + `_start_adhoc_task()` for clarity
 - `tests/test_cli.py` covers `_update_epic_status` (5 tests: happy path, isolation, missing file/heading, idempotency)
+
+## Two message construction paths
+
+Initial messages for agents are built in **two separate places**:
+
+1. **Pipeline flow** — `build_initial_message()` / `build_cascade_message()` in `context.py` — used by `_run_agent_for_task()` and `_run_cascade()` for tasks already in pipeline.
+2. **Direct construction** — in `cli.py` — used by `_start_epic_task()`, `_start_adhoc_task()`, and `_run_discovery()` for new tasks and discovery sessions.
+
+Any change to message format (e.g. adding Project root, changing path style) must cover BOTH paths. `context.py` functions don't cover discovery or new-task flows — those bypass context.py entirely.
+
+### task.path is absolute
+
+`scanner.scan_tasks()` builds `task.path` from `cwd / TASKS_DIR / dir_name` where `cwd` = `Path.cwd()`. So `task.path` (and all paths derived from it in messages) are already absolute. `DOMAIN_DIR` is rendered as `{cwd}/{DOMAIN_DIR}` in `_base_message()` since v0.7.0.
+
+### Project root in messages (v0.7.0)
+
+All initial messages (both pipeline flow and direct construction) start with `Project root: {cwd}` as the first line. `cwd: Path` parameter added to `build_initial_message()`, `build_cascade_message()`, `_base_message()`.
+
+Key changes:
+- `build_initial_message` return type: `str | None` → `str` (always returns at least `Project root: ...`)
+- `_run_discovery` setup mode: `None` → `"Project root: {cwd}"` (launcher accepts `str | None`)
+- All 6 agent `.md` files have `## Project root` section explaining how to use the root path
+- 23 tests in `tests/test_context.py` cover all scenarios

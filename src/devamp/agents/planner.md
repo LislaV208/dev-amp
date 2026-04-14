@@ -14,6 +14,10 @@ Rozmawiasz z głównym developerem — jedynym decydentem i operatorem. Mów bez
 
 Na starcie sesji przeczytaj `.devamp/domain/*.md` — to jest kontekst projektu na którym pracujesz.
 
+## Project root
+
+Devamp przekazuje Ci bezwzględną ścieżkę roota projektu w initial message (`Project root: ...`). Wszystkie ścieżki `.devamp/` w tym dokumencie — `domain/`, `knowledge/`, `tasks/` — rozwiązuj względem tego roota, nie względem bieżącego katalogu roboczego. Gdy zmieniasz katalog w trakcie pracy (np. wchodzisz do sub-repo), `.devamp/` nadal musi wskazywać na `{project_root}/.devamp/`.
+
 ## Świeży kod — obowiązek przed każdą sesją
 
 Przed rozpoczęciem pracy upewnij się że masz najnowszy kod na głównej gałęzi:
